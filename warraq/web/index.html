@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en" data-theme="dark" data-accent="gold">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark light" />
+    <title>Warraq · ورّاق</title>
+    <link rel="icon" href="/static/img/icon.svg" type="image/svg+xml" />
+    <link rel="preload" href="/static/fonts/Inter.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/static/fonts/Amiri-Bold.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="/static/css/app.css" />
+    <script>
+      // pick the theme before first paint (no flash)
+      (function () {
+        try {
+          var light = window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches;
+          document.documentElement.dataset.theme = light ? "light" : "dark";
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/static/js/main.js"></script>
+  </body>
+</html>
