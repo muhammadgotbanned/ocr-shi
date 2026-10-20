@@ -3,8 +3,10 @@ assembly and export, emitting progress events along the way."""
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
+import queue
 import shutil
 import threading
 import time
@@ -47,6 +49,27 @@ class JobControl:
 
     def cancelled(self) -> bool:
         return self.cancel.is_set()
+
+
+@dataclass
+class _PreparedPart:
+    """One page (or one half of a spread) ready to be read: laid out and cut into lines."""
+
+    part: object  # preprocess.ProcessedPage
+    ctx: L.PageContext | None = None
+    regions: list = field(default_factory=list)
+    jobs: list = field(default_factory=list)  # recognizer.RegionJob
+    error: Exception | None = None
+    trace: str = ""
+
+
+@dataclass
+class _PreparedPage:
+    sp: object  # loader.SourcePage
+    skip: bool = False  # finished in an earlier run
+    parts: list[_PreparedPart] = field(default_factory=list)
+    error: str = ""
+    seconds: float = 0.0
 
 
 class Engine:
@@ -99,30 +122,30 @@ class Engine:
             self.ensure_models(settings, emit)
             recognizer = Recognizer(self.ocr, settings, progress=emit, cancel=control.cancelled)
             processed = 0
-            for sp in loader.iter_pages(source, settings.input.pdf_dpi, _range_spec(wanted), settings.input.use_embedded_images):
-                control.check()
-                idx = sp.source_index
-                if (idx, None) in done_keys or ((idx, 0) in done_keys and (idx, 1) in done_keys):
+            emit({"type": "status", "message": "Preparing the first page…"})
+            # the next page is loaded, cleaned up, laid out and cut into lines on a second
+            # thread while the model reads this one
+            with contextlib.closing(self._prefetch(source, settings, wanted, done_keys, recognizer)) as pages:
+                for item in pages:
+                    control.check()
+                    sp = item.sp
+                    if item.skip:
+                        processed += 1
+                        emit({"type": "progress", "done": processed, "total": len(wanted)})
+                        continue
+                    emit({"type": "page_start", "source_index": sp.source_index, "done": processed, "total": len(wanted)})
+                    if item.error:
+                        emit({"type": "log", "level": "error", "message": item.error})
+                    t0 = time.time()
+                    for prepared in item.parts:
+                        control.check()
+                        page = self._read_part(doc, sp, prepared, pages_dir, settings, recognizer, emit, control)
+                        page.elapsed = item.seconds + (time.time() - t0)
+                        _insert_page(doc, page)
+                        save_document(job_dir, doc)
+                        emit({"type": "page_done", "page": page.to_dict(), "done": processed + 1, "total": len(wanted)})
                     processed += 1
                     emit({"type": "progress", "done": processed, "total": len(wanted)})
-                    continue
-                emit({"type": "page_start", "source_index": sp.source_index, "done": processed, "total": len(wanted)})
-                t0 = time.time()
-                try:
-                    parts = preprocess(sp.image, settings)
-                except Exception as exc:  # pragma: no cover - defensive
-                    log.exception("preprocess failed")
-                    parts = []
-                    emit({"type": "log", "level": "error", "message": f"Page {sp.source_index + 1}: preprocessing failed ({exc})"})
-                for part in parts:
-                    control.check()
-                    page = self._process_part(doc, sp, part, pages_dir, settings, recognizer, emit, control)
-                    page.elapsed = time.time() - t0
-                    _insert_page(doc, page)
-                    save_document(job_dir, doc)
-                    emit({"type": "page_done", "page": page.to_dict(), "done": processed + 1, "total": len(wanted)})
-                processed += 1
-                emit({"type": "progress", "done": processed, "total": len(wanted)})
             for i, p in enumerate(doc.pages):
                 p.index = i
             save_document(job_dir, doc)
@@ -162,7 +185,92 @@ class Engine:
         emit({"type": "page_done", "page": pg.to_dict(), "done": 1, "total": 1})
         return pg
 
-    def _process_part(self, doc, sp, part, pages_dir: Path, settings, recognizer: Recognizer, emit, control) -> Page:
+    def _prefetch(self, source: Path, settings, wanted: list[int], done_keys: set, recognizer: Recognizer):
+        """Yield the wanted pages ready for reading, one page ahead on a worker thread."""
+        ahead: "queue.Queue[object]" = queue.Queue(maxsize=1)
+        stop = threading.Event()
+        end = object()
+
+        def put(item) -> bool:
+            while not stop.is_set():
+                try:
+                    ahead.put(item, timeout=0.2)
+                    return True
+                except queue.Full:
+                    continue
+            return False
+
+        def work() -> None:
+            try:
+                for sp in loader.iter_pages(source, settings.input.pdf_dpi, _range_spec(wanted), settings.input.use_embedded_images):
+                    if stop.is_set():
+                        return
+                    idx = sp.source_index
+                    if (idx, None) in done_keys or ((idx, 0) in done_keys and (idx, 1) in done_keys):
+                        item = _PreparedPage(sp, skip=True)
+                    else:
+                        item = self._prepare_page(sp, settings, recognizer)
+                    if not put(item):
+                        return
+            except BaseException as exc:  # a broken file: the job fails as it did before
+                put(exc)
+                return
+            put(end)
+
+        worker = threading.Thread(target=work, name="warraq-prefetch", daemon=True)
+        worker.start()
+        try:
+            while True:
+                item = ahead.get()
+                if item is end:
+                    return
+                if isinstance(item, BaseException):
+                    raise item
+                yield item
+        finally:
+            stop.set()
+            with contextlib.suppress(queue.Empty):
+                ahead.get_nowait()  # let a worker blocked on a full queue see the stop
+            worker.join(timeout=10)
+
+    def _prepare_page(self, sp, settings, recognizer: Recognizer) -> _PreparedPage:
+        """Everything before the OCR model: preprocessing, layout, cutting regions into lines."""
+        from . import imaging
+
+        t0 = time.time()
+        item = _PreparedPage(sp)
+        try:
+            parts = preprocess(sp.image, settings)
+        except Exception as exc:  # pragma: no cover - defensive
+            log.exception("preprocess failed")
+            parts = []
+            item.error = f"Page {sp.source_index + 1}: preprocessing failed ({exc})"
+        for part in parts:
+            prepared = _PreparedPart(part)
+            try:
+                ctx = L.build_context(imaging.to_gray(part.image))
+                if settings.layout.mode == "auto":
+                    regions = L.analyze(self._detect(part.image, settings), ctx, settings, 0)
+                else:
+                    regions = L.full_page(ctx, settings, 0)
+                prepared.ctx, prepared.regions = ctx, regions
+                prepared.jobs = recognizer.prepare(part.image, regions)
+            except Exception as exc:
+                prepared.error, prepared.trace = exc, traceback.format_exc(limit=6)
+            item.parts.append(prepared)
+        item.seconds = time.time() - t0
+        return item
+
+    def _detect(self, image: Image.Image, settings):
+        # Both models on the CPU would only fight over its cores: then the layout model waits
+        # for the batch being read.  On a GPU (or with the layout model on the CPU and OCR on
+        # the GPU) they run side by side.
+        both_on_cpu = self.ocr.device == "cpu" and self.layout.device == "cpu"
+        with self.ocr.lock if both_on_cpu else contextlib.nullcontext():
+            return self.layout.detect(image, settings.layout.threshold)
+
+    def _read_part(self, doc, sp, prepared: _PreparedPart, pages_dir: Path, settings, recognizer: Recognizer, emit, control) -> Page:
+        part = prepared.part
         idx_tag = f"{sp.source_index + 1:04d}" + ("" if part.split_part is None else "ab"[part.split_part])
         img_path = pages_dir / f"{idx_tag}.jpg"
         thumb_path = pages_dir / f"{idx_tag}_thumb.jpg"
@@ -189,22 +297,18 @@ class Engine:
         save_document(pages_dir.parent, doc)
         emit({"type": "page_image", "page": page.to_dict()})
         try:
-            from . import imaging
-
-            gray = imaging.to_gray(part.image)
-            ctx = L.build_context(gray)
-            if settings.layout.mode == "auto":
-                dets = self.layout.detect(part.image, settings.layout.threshold)
-                regions = L.analyze(dets, ctx, settings, page.index)
-            else:
-                regions = L.full_page(ctx, settings, page.index)
+            if prepared.error is not None:
+                raise prepared.error
+            regions = prepared.regions
+            for i, r in enumerate(regions):  # laid out before its place in the document was known
+                r.id = f"p{page.index + 1}-r{i + 1}"
             page.regions = regions
             save_document(pages_dir.parent, doc)
             emit({"type": "layout", "page": page.to_dict()})
             control.check()
-            recognizer.recognize_page(part.image, regions, page.index)
+            recognizer.read(prepared.jobs, page.index)
             control.check()
-            L.refine_after_ocr(regions, ctx, page)
+            L.refine_after_ocr(regions, prepared.ctx, page)
             page.status = "done"
         except Cancelled:
             raise
@@ -212,7 +316,8 @@ class Engine:
             log.exception("page failed")
             page.status = "error"
             page.error = f"{type(exc).__name__}: {exc}"
-            emit({"type": "log", "level": "error", "message": f"Page {sp.source_index + 1}: {page.error}", "trace": traceback.format_exc(limit=6)})
+            trace = prepared.trace or traceback.format_exc(limit=6)
+            emit({"type": "log", "level": "error", "message": f"Page {sp.source_index + 1}: {page.error}", "trace": trace})
         return page
 
 

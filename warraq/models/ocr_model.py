@@ -150,6 +150,7 @@ class OCRModel:
         self.loaded_signature: tuple | None = None
         self.lock = threading.RLock()
         self.last_used = 0.0
+        self.batch_limit: int | None = None  # largest batch that fits, once one did not
 
     # ------------------------------------------------------------------ #
     def signature(self, settings) -> tuple:
@@ -212,6 +213,7 @@ class OCRModel:
                     log.warning("torch.compile failed: %s", exc)
             self.model, self.processor = model, processor
             self.device, self.dtype = device, dtype
+            self.batch_limit = None
             self.model_id = settings.models.ocr_model
             self.loaded_signature = sig
             self.last_used = time.time()

@@ -89,6 +89,12 @@ class Recognizer:
     def recognize_page(self, page_img: Image.Image, regions: list[Region], page_index: int, targets: list[Region] | None = None) -> None:
         """Read the text regions of a page.  ``targets`` limits reading to some of them;
         ``regions`` is still the whole page, so neighbouring blocks are masked out."""
+        self.read(self.prepare(page_img, regions, targets), page_index)
+
+    def prepare(self, page_img: Image.Image, regions: list[Region], targets: list[Region] | None = None) -> list[RegionJob]:
+        """Crop, straighten and cut the text regions into line images.  This is all image
+        work, no model, so the engine runs it for the next page while the model reads the
+        current one."""
         jobs: list[RegionJob] = []
         for r in regions if targets is None else targets:
             if r.kind not in TEXT_KINDS:
@@ -100,8 +106,13 @@ class Recognizer:
             jobs.append(job)
             if job.alt is not None:
                 jobs.append(job.alt)
+        return jobs
+
+    def read(self, jobs: list[RegionJob], page_index: int) -> None:
+        """Read prepared regions with the model, check every reading and re-read what fails."""
+        jobs = self._settle_orientation(jobs, page_index)
         all_chunks = [c for j in jobs for c in j.chunks]
-        self._run_chunks(all_chunks, page_index)
+        self._run_chunks([c for c in all_chunks if c.result is None], page_index)
         self._learn_density(jobs)
         for c in all_chunks:
             self._check_length(c)
@@ -144,6 +155,22 @@ class Recognizer:
         for region_id, candidates in by_region.items():
             best = max(candidates, key=_job_score)
             self._finalize(best)
+
+    def _settle_orientation(self, jobs: list[RegionJob], page_index: int) -> list[RegionJob]:
+        """A rotated note is prepared both ways up.  Reading every line of both doubles its
+        cost, so first one line of each is read; when one way up is clearly right (the other
+        reads as garbage) the other is dropped.  Close calls still read both in full."""
+        pairs = [(j, j.alt) for j in jobs if j.alt is not None and len(j.chunks) + len(j.alt.chunks) > 2]
+        if not pairs:
+            return jobs
+        probes = [(j, a, _widest(j), _widest(a)) for j, a in pairs]
+        self._run_chunks([c for _, _, pj, pa in probes for c in (pj, pa)], page_index)
+        drop: set[int] = set()
+        for j, a, pj, pa in probes:
+            sj, sa = _chunk_score(pj), _chunk_score(pa)
+            if abs(sj - sa) >= ORIENTATION_MARGIN:
+                drop.add(id(a) if sj > sa else id(j))
+        return [j for j in jobs if id(j) not in drop]
 
     # ------------------------------------------------------------------ #
     def _prepare_region(self, page_img: Image.Image, r: Region, regions: list[Region]) -> RegionJob | None:
@@ -307,28 +334,30 @@ class Recognizer:
         bs = self.settings.recognition.batch_size or _auto_batch(self.ocr)
         ordered = sorted(chunks, key=lambda c: c.image.size[0] * c.image.size[1])
         done = 0
-        for i in range(0, len(ordered), bs):
+        i = 0
+        while i < len(ordered):
             if self.cancel():
                 return
-            batch = ordered[i : i + bs]
+            # a batch size that ran out of memory once is not tried again on this model
+            limit = getattr(self.ocr, "batch_limit", None)
+            batch = ordered[i : i + (min(bs, limit) if limit else bs)]
             ids = sorted({c.region.id for c in batch})
             self.progress({"type": "reading", "page": page_index, "regions": ids, "done": done, "total": len(ordered)})
             try:
                 results = self.ocr.recognize([c.image for c in batch], [c.budget for c in batch], self.settings, self.cancel)
             except Exception as exc:
                 if len(batch) > 1 and _is_oom(exc):
-                    log.warning("Out of memory with batch %d; retrying one by one", len(batch))
                     import gc
 
-                    gc.collect()
                     from ..models import hardware
 
+                    gc.collect()
                     hardware.empty_cache()
-                    results = []
-                    for c in batch:
-                        results.extend(self.ocr.recognize([c.image], [c.budget], self.settings, self.cancel))
-                else:
-                    raise
+                    self.ocr.batch_limit = max(1, len(batch) // 2)
+                    log.warning("Out of memory reading %d lines at once; continuing with %d", len(batch), self.ocr.batch_limit)
+                    continue
+                raise
+            i += len(batch)
             for c, res in zip(batch, results):
                 c.result = res
                 c.text = res.text
@@ -548,6 +577,14 @@ class Recognizer:
         return out
 
 
+ORIENTATION_MARGIN = 0.3  # chunk-score gap that settles which way up a rotated note is read
+
+
+def _widest(job: RegionJob) -> Chunk:
+    """The chunk with the most text: the fairest single test of an orientation."""
+    return max(job.chunks, key=lambda c: sum(b.right - b.left for b in c.bands))
+
+
 def _line_score(stats: list[tuple[float, float]]) -> float:
     """Mean log-probability, pulled down by the single weakest token."""
     if not stats:
@@ -741,8 +778,11 @@ def _auto_batch(ocr) -> int:
         return 2
     from ..models import hardware
 
+    # line images are small: a batch of 16 needs well under 2 GB besides the model, and
+    # reading them together costs barely more than reading one (decoding is memory-bound).
+    # Running out of memory halves the batch for the rest of the session (see _run_chunks).
     mem = hardware.device_memory_gb(device) or 8
-    return 8 if mem >= 20 else 6 if mem >= 12 else 4 if mem >= 8 else 2
+    return 16 if mem >= 20 else 12 if mem >= 12 else 8 if mem >= 8 else 4 if mem >= 6 else 2
 
 
 def _widen_short_line(img: Image.Image, width: int) -> Image.Image:

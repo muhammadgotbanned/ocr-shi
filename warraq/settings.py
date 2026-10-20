@@ -273,7 +273,8 @@ class RecognitionSettings(Section):
     batch_size: int = opt(
         0,
         "Batch size",
-        "Lines/regions recognised together on the GPU. 0 = automatic (1 on CPU, 2–8 on GPUs depending on memory).",
+        "Lines/regions recognised together on the GPU. 0 = automatic (1 on CPU, 2–16 on GPUs depending on memory; "
+        "halved for the session if the GPU runs out of memory).",
         min=0,
         max=32,
     )
