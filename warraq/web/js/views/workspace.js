@@ -8,6 +8,9 @@ import { toast, menu, bar } from "../components/ui.js";
 
 const SVGNS = "http://www.w3.org/2000/svg";
 const SIDE = { right: "right margin", left: "left margin", top: "top margin", bottom: "bottom margin" };
+// region types a user can ask for when re-reading part of a page or correcting a block
+const AREA_KINDS = ["auto", "body", "title", "footnote", "margin", "header"];
+const BLOCK_KINDS = ["body", "title", "footnote", "margin", "header", "footer", "page_number"];
 const EDGE = /^([\s.,،؛:;!?؟"'«»()[\]{}<>\-–—…*/\\|]*)(.*?)([\s.,،؛:;!?؟"'«»()[\]{}<>\-–—…*/\\|]*)$/su;
 
 // Region text with the words the model was unsure of underlined for review.
@@ -31,6 +34,11 @@ export class WorkspaceView {
     this.zoom = Number(localStorage.getItem("warraq.zoom") || 0); // 0 = fit
     this.tab = localStorage.getItem("warraq.tab") || "page";
     this.selected = null;
+    this.areaMode = false; // dragging on the page selects an area to read again
+    this.drag = null; // area being drawn (page px)
+    this.selection = null; // area drawn, waiting for "Re-read"
+    this.pending = null; // {page, bbox}: area being re-read now
+    this.areaKind = localStorage.getItem("warraq.areaKind") || "auto";
     this.assembled = null;
     this.translation = null;
     this.el = h("div.view");
@@ -117,6 +125,8 @@ export class WorkspaceView {
     this.pageIndex = Math.max(0, Math.min(pages.length - 1, i));
     sessionStorage.setItem(`warraq.page.${this.jobId}`, String(this.pageIndex));
     this.selected = null;
+    this.selection = null;
+    this.closeAreaPop();
     this.renderThumbs();
     this.renderStage();
     this.renderPanel();
@@ -137,13 +147,20 @@ export class WorkspaceView {
       h("button.icon-btn", { title: "Zoom in", onclick: () => this.setZoom(this.currentZoom() * 1.2) }, icon("zoomIn")),
       h("button.icon-btn", { title: "Fit", onclick: () => this.setZoom(0) }, icon("fit")),
       (this.overlayBtn = h("button.icon-btn.on", { title: "Show regions", onclick: () => { this.overlayOn = !this.overlayOn; this.overlayBtn.classList.toggle("on", this.overlayOn); this.renderOverlay(); } }, icon("layers"))),
+      (this.areaBtn = h("button.icon-btn", { title: `${t("rereadArea")} (A)`, onclick: () => this.setAreaMode(!this.areaMode) }, icon("scan"))),
       h("button.icon-btn", { title: "Next page (→)", onclick: () => this.goto(this.pageIndex + 1) }, icon("chevron")),
     );
     this.overlayOn = true;
     const legend = h("div.legend", {},
       ...[["body", "region_body"], ["margin", "region_margin"], ["footnote", "region_footnote"], ["header", "region_header"]].map(([k, key]) => h("span", {}, h("i", { style: { background: KIND_COLOR[k] } }), t(key))),
     );
-    this.stage.append(legend, this.canvas, tools);
+    this.areaHint = h("div.area-hint", {}, icon("scan"), h("span", { text: t("rereadAreaHint") }));
+    this.stage.append(legend, this.areaHint, this.canvas, tools);
+    this.paper.addEventListener("pointerdown", (e) => this.areaDown(e));
+    this.paper.addEventListener("pointermove", (e) => this.areaMove(e));
+    this.paper.addEventListener("pointerup", (e) => this.areaUp(e));
+    this.paper.addEventListener("pointercancel", () => { this.drag = null; this.drawAreas(); });
+    this.canvas.addEventListener("scroll", () => this.placeAreaPop(), { passive: true });
     this.canvas.addEventListener("wheel", (e) => {
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
@@ -177,6 +194,7 @@ export class WorkspaceView {
     this.paper.style.width = `${Math.round(width)}px`;
     this.zoomLabel.textContent = `${Math.round((width / p.width) * 100)}%`;
     if (changed && this.svg) this.renderOverlay();
+    this.placeAreaPop();
   }
 
   renderStage() {
@@ -204,7 +222,7 @@ export class WorkspaceView {
     const p = this.page;
     if (!svg || !p) return;
     svg.innerHTML = `<defs><linearGradient id="scan-grad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--accent)" stop-opacity="0"/><stop offset=".85" stop-color="var(--accent)" stop-opacity=".28"/><stop offset="1" stop-color="var(--accent)" stop-opacity=".7"/></linearGradient></defs>`;
-    if (!this.overlayOn) return;
+    if (!this.overlayOn) return this.drawAreas();
     const reading = state.reading[this.jobId];
     const readingIds = reading && reading.page === p.index ? new Set(reading.regions) : new Set();
     const scale = Math.max(0.05, (this.paper.offsetWidth || p.width) / p.width);
@@ -219,7 +237,7 @@ export class WorkspaceView {
       rect.setAttribute("rx", 6);
       rect.setAttribute("data-region", r.id);
       rect.setAttribute("class", `region${this.selected === r.id ? " sel" : ""}${this.selected && this.selected !== r.id ? " dim" : ""}${r.flagged ? " flagged" : ""}`);
-      rect.addEventListener("click", (e) => { e.stopPropagation(); this.select(r.id, true); });
+      rect.addEventListener("click", (e) => { e.stopPropagation(); if (!this.areaMode) this.select(r.id, true); });
       rect.addEventListener("mouseenter", () => this.hoverBlock(r.id, true));
       rect.addEventListener("mouseleave", () => this.hoverBlock(r.id, false));
       const title = document.createElementNS(SVGNS, "title");
@@ -245,6 +263,166 @@ export class WorkspaceView {
         g.appendChild(scan);
       }
       svg.appendChild(g);
+    }
+    this.drawAreas();
+  }
+
+  /* ------------------------------------------------------------ re-read an area */
+  setAreaMode(on) {
+    this.areaMode = on;
+    this.areaBtn.classList.toggle("on", on);
+    this.paper.classList.toggle("selecting", on);
+    this.stage.classList.toggle("area-mode", on);
+    if (!on) {
+      this.drag = null;
+      this.selection = null;
+      this.closeAreaPop();
+    }
+    this.drawAreas();
+  }
+
+  toPage(e) {
+    const p = this.page;
+    const r = this.paper.getBoundingClientRect();
+    const x = ((e.clientX - r.left) / Math.max(1, r.width)) * p.width;
+    const y = ((e.clientY - r.top) / Math.max(1, r.height)) * p.height;
+    return [Math.max(0, Math.min(p.width, x)), Math.max(0, Math.min(p.height, y))];
+  }
+
+  areaDown(e) {
+    if (!this.areaMode || !this.page || e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    this.closeAreaPop();
+    this.selection = null;
+    const [x, y] = this.toPage(e);
+    this.drag = { x0: x, y0: y, x1: x, y1: y };
+    this.paper.setPointerCapture(e.pointerId);
+    this.drawAreas();
+  }
+
+  areaMove(e) {
+    if (!this.drag) return;
+    [this.drag.x1, this.drag.y1] = this.toPage(e);
+    this.drawAreas();
+  }
+
+  areaUp(e) {
+    if (!this.drag) return;
+    [this.drag.x1, this.drag.y1] = this.toPage(e);
+    const box = normBox(this.drag);
+    this.drag = null;
+    const scale = this.paper.offsetWidth / this.page.width;
+    if ((box[2] - box[0]) * scale < 8 || (box[3] - box[1]) * scale < 8) { this.drawAreas(); return; }
+    this.selection = box;
+    this.drawAreas();
+    this.openAreaPop();
+  }
+
+  drawAreas() {
+    const svg = this.svg;
+    const p = this.page;
+    if (!svg || !p) return;
+    svg.querySelectorAll(".area").forEach((n) => n.remove());
+    const scale = Math.max(0.05, (this.paper.offsetWidth || p.width) / p.width);
+    const box = this.drag ? normBox(this.drag) : this.selection;
+    if (box) svg.appendChild(svgRect(box, "area area-sel", 4 / scale));
+    if (this.pending && this.pending.page === p.index && this.pending.bbox) {
+      const [x0, y0, x1, y1] = this.pending.bbox;
+      const g = document.createElementNS(SVGNS, "g");
+      g.setAttribute("class", "area");
+      g.appendChild(svgRect(this.pending.bbox, "area-pending", 4 / scale));
+      const scan = document.createElementNS(SVGNS, "rect");
+      const hh = Math.max(12, (y1 - y0) * 0.3);
+      scan.setAttribute("x", x0); scan.setAttribute("width", Math.max(1, x1 - x0)); scan.setAttribute("height", hh); scan.setAttribute("class", "scanline");
+      scan.innerHTML = `<animate attributeName="y" from="${y0 - hh}" to="${y1 - hh * 0.2}" dur="1.2s" repeatCount="indefinite"/>`;
+      g.appendChild(scan);
+      svg.appendChild(g);
+    }
+  }
+
+  openAreaPop() {
+    this.closeAreaPop();
+    const seg = h("div.seg");
+    const pick = (k) => {
+      this.areaKind = k;
+      localStorage.setItem("warraq.areaKind", k);
+      for (const b of seg.children) b.classList.toggle("on", b.dataset.kind === k);
+    };
+    for (const k of AREA_KINDS) seg.appendChild(h("button", { dataset: { kind: k }, onclick: () => pick(k), text: k === "auto" ? t("rereadAreaAuto") : t("region_" + k) }));
+    pick(AREA_KINDS.includes(this.areaKind) ? this.areaKind : "auto");
+    const go = () => this.rereadArea({ bbox: this.selection.map((v) => Math.round(v)), kind: this.areaKind }, this.selection);
+    this.areaPop = h("div.area-pop", { role: "dialog", onpointerdown: (e) => e.stopPropagation() },
+      h("div.t", { text: t("rereadAreaAs") }),
+      seg,
+      h("div.row", {},
+        h("button.btn.sm.ghost", { onclick: () => { this.selection = null; this.closeAreaPop(); this.drawAreas(); } }, t("cancel")),
+        h("button.btn.sm.primary", { onclick: go }, icon("scan"), t("rereadAreaGo")),
+      ),
+    );
+    this.areaPop.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); go(); } });
+    this.stage.appendChild(this.areaPop);
+    this.placeAreaPop();
+    this.areaPop.querySelector(".btn.primary").focus();
+  }
+
+  placeAreaPop() {
+    const pop = this.areaPop;
+    const p = this.page;
+    if (!pop || !this.selection || !p) return;
+    const pr = this.paper.getBoundingClientRect();
+    const sr = this.stage.getBoundingClientRect();
+    const k = pr.width / p.width;
+    const [x0, , x1, y1] = this.selection;
+    const cx = pr.left - sr.left + ((x0 + x1) / 2) * k;
+    let top = pr.top - sr.top + y1 * k + 10;
+    if (top + pop.offsetHeight > sr.height - 70) top = Math.max(10, pr.top - sr.top + this.selection[1] * k - pop.offsetHeight - 10);
+    const left = Math.max(10, Math.min(sr.width - pop.offsetWidth - 10, cx - pop.offsetWidth / 2));
+    pop.style.left = `${left}px`;
+    pop.style.top = `${top}px`;
+  }
+
+  closeAreaPop() {
+    if (this.areaPop) this.areaPop.remove();
+    this.areaPop = null;
+  }
+
+  async rereadArea(body, bbox) {
+    const p = this.page;
+    if (!p) return;
+    const job = this.job;
+    if (job && ["running", "queued"].includes(job.status) && job.kind !== "area") {
+      toast(t("waiting"), "info");
+      return;
+    }
+    try {
+      await api.action(this.jobId, "area", { page: p.index, ...body });
+      this.pending = { page: p.index, bbox: bbox ? [...bbox] : null };
+      this.app.markDirty(this.jobId);
+      toast(`${t("rereading")}…`, "info", 1600);
+    } catch (e) {
+      toast(e.message, "err");
+    }
+    this.selection = null;
+    this.closeAreaPop();
+    if (this.areaMode) this.setAreaMode(false);
+    this.drawAreas();
+  }
+
+  kindMenu(anchor, r) {
+    menu(anchor, BLOCK_KINDS.filter((k) => k !== r.kind).map((k) => ({ label: t("region_" + k), run: () => this.changeKind(r, k) })));
+  }
+
+  async changeKind(r, kind) {
+    try {
+      const page = await api.editRegion(this.jobId, r.id, { kind });
+      upsertPage(this.jobId, page);
+      this.app.markDirty(this.jobId);
+      this.renderStage();
+      this.renderPanel();
+      this.refreshAssembled();
+    } catch (e) {
+      toast(e.message, "err");
     }
   }
 
@@ -355,6 +533,7 @@ export class WorkspaceView {
     this.actions.append(
       h("button.btn.sm", { onclick: () => this.copyPage() }, icon("copy"), t("copy")),
       h("div.spacer"),
+      h("button.btn.sm", { title: `${t("rereadAreaHint")} (A)`, onclick: () => this.setAreaMode(!this.areaMode) }, icon("scan"), t("rereadArea")),
       h("button.btn.sm", { onclick: () => this.rereadPage() }, icon("refresh"), t("rereadPage")),
     );
   }
@@ -397,7 +576,12 @@ export class WorkspaceView {
     text.addEventListener("focus", () => this.select(r.id));
     text.addEventListener("keydown", (e) => { if (e.key === "Escape") text.blur(); });
     const content = label ? h("div.note", {}, h("span.lbl", { text: label }), h("div", { style: { flex: 1 } }, side ? h("div.side", { text: side }) : null, text)) : text;
+    const tools = h("div.block-tools", {},
+      h("button.icon-btn", { title: t("rereadRegion"), onclick: (e) => { e.stopPropagation(); this.rereadArea({ region_id: r.id }, r.bbox); } }, icon("refresh")),
+      h("button.icon-btn", { title: t("changeType"), onclick: (e) => { e.stopPropagation(); this.kindMenu(e.currentTarget, r); } }, icon("tag")),
+    );
     const el = h("div.block", { dataset: { region: r.id }, onmouseenter: () => this.hoverRegion(r.id, true), onmouseleave: () => this.hoverRegion(r.id, false) },
+      tools,
       content,
       r.flagged ? h("span.conf", { text: `${t("lowConf")}${r.confidence != null ? " · " + Math.round(r.confidence * 100) + "%" : ""}` }) : null,
     );
@@ -491,6 +675,11 @@ export class WorkspaceView {
       if (kind === "settings") this.refreshAssembled();
       return;
     }
+    if (kind === "page_done" && this.pending && this.pending.page === e.page.index) this.pending = null;
+    if (kind === "job" && e.job && e.job.kind === "area" && ["done", "error", "cancelled"].includes(e.status)) {
+      this.pending = null;
+      this.drawAreas();
+    }
     if (kind === "page_image" || kind === "layout" || kind === "page_done") {
       upsertPage(this.jobId, e.page);
       const pages = this.doc.pages;
@@ -518,7 +707,22 @@ export class WorkspaceView {
     if (e.target.closest && e.target.closest("[contenteditable], input, textarea, select")) return false;
     if (e.key === "ArrowRight") { this.goto(this.pageIndex + (document.dir === "rtl" ? -1 : 1)); return true; }
     if (e.key === "ArrowLeft") { this.goto(this.pageIndex + (document.dir === "rtl" ? 1 : -1)); return true; }
+    if (e.key === "Escape" && this.areaMode) { this.setAreaMode(false); return true; }
     if (e.key === "Escape" && this.selected) { this.select(null); return true; }
+    if ((e.key === "a" || e.key === "A") && !e.ctrlKey && !e.metaKey && !e.altKey && this.page) { this.setAreaMode(!this.areaMode); return true; }
     return false;
   }
+}
+
+function normBox(d) {
+  return [Math.min(d.x0, d.x1), Math.min(d.y0, d.y1), Math.max(d.x0, d.x1), Math.max(d.y0, d.y1)];
+}
+
+function svgRect([x0, y0, x1, y1], cls, rx = 4) {
+  const rect = document.createElementNS(SVGNS, "rect");
+  rect.setAttribute("x", x0); rect.setAttribute("y", y0);
+  rect.setAttribute("width", Math.max(1, x1 - x0)); rect.setAttribute("height", Math.max(1, y1 - y0));
+  rect.setAttribute("rx", rx);
+  rect.setAttribute("class", cls);
+  return rect;
 }

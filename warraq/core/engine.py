@@ -128,6 +128,40 @@ class Engine:
             save_document(job_dir, doc)
         return doc
 
+    def reread_area(self, job_dir: Path, settings, emit: EventFn, control: JobControl | None = None, page: int = 0, bbox=None, region_id: str | None = None, kind: str = "auto") -> Page:
+        """Read part of a finished page again: the box ``bbox`` (page pixels) or the region
+        ``region_id``, optionally as a given kind of region, and merge it into the page."""
+        from . import area as A
+        from . import imaging
+
+        control = control or JobControl()
+        job_dir = Path(job_dir)
+        doc = load_document(job_dir)
+        if doc is None or not 0 <= page < len(doc.pages):
+            raise ValueError("That page is not part of this document.")
+        pg = doc.pages[page]
+        if bbox is None and not region_id:
+            raise ValueError("Choose an area or a region to read.")
+        img = Image.open(job_dir / "pages" / pg.image_path).convert("RGB")
+        with self.lock:
+            self.ocr.load(settings, lambda info: emit({"type": "model", **info}))
+            emit({"type": "model", "stage": "ready", "device": self.ocr.device})
+            ctx = L.build_context(imaging.to_gray(img))
+            A.prime_context(pg.regions, ctx)
+            if region_id:
+                plan = A.plan_region(pg.regions, region_id, kind)
+            else:
+                plan = A.plan_area(pg.regions, ctx, bbox, kind, pg.index, settings.text.line_mode)
+            context = [r for r in pg.regions if all(r is not x for x in plan.replaces) and r is not plan.region] + [plan.region]
+            emit({"type": "status", "page": pg.index, "message": f"Re-reading part of page {pg.index + 1}…"})
+            recognizer = Recognizer(self.ocr, settings, progress=emit, cancel=control.cancelled)
+            recognizer.recognize_page(img, context, pg.index, targets=[plan.region])
+            control.check()
+            A.apply(pg, plan, settings.layout.reading_order)
+            save_document(job_dir, doc)
+        emit({"type": "page_done", "page": pg.to_dict(), "done": 1, "total": 1})
+        return pg
+
     def _process_part(self, doc, sp, part, pages_dir: Path, settings, recognizer: Recognizer, emit, control) -> Page:
         idx_tag = f"{sp.source_index + 1:04d}" + ("" if part.split_part is None else "ab"[part.split_part])
         img_path = pages_dir / f"{idx_tag}.jpg"

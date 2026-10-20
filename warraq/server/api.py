@@ -219,6 +219,10 @@ def create_app(state: AppState | None = None) -> FastAPI:
             if body.get("overrides"):
                 job.overrides = {**job.overrides, **body["overrides"]}
             m.enqueue(job, "reocr", pages=[int(p) for p in pages] if pages else None)
+        elif action == "area":
+            # read part of a page again: a box the user drew, or one region
+            area = _area_request(job, body)
+            m.enqueue(job, "area", area=area)
         elif action == "translate":
             if body.get("overrides"):
                 job.overrides = {**job.overrides, **body["overrides"]}
@@ -241,6 +245,8 @@ def create_app(state: AppState | None = None) -> FastAPI:
             page = state.manager.update_region(job_id, region_id, body.get("text"), body.get("kind"))
         except KeyError:
             raise HTTPException(404, "Region not found")
+        except ValueError as exc:
+            raise HTTPException(400, str(exc))
         return page
 
     @app.get("/api/jobs/{job_id}/preview")
@@ -385,6 +391,39 @@ def _job(state: AppState, job_id: str):
         return state.manager.get(job_id)
     except KeyError:
         raise HTTPException(404, "Job not found")
+
+
+def _area_request(job, body: dict) -> dict:
+    from ..core.area import KINDS
+    from ..core.engine import load_document
+
+    doc = load_document(job.dir)
+    try:
+        page = int(body.get("page", -1))
+    except (TypeError, ValueError):
+        page = -1
+    if doc is None or not 0 <= page < len(doc.pages):
+        raise HTTPException(400, "Unknown page")
+    kind = body.get("kind") or "auto"
+    if kind != "auto" and kind not in KINDS:
+        raise HTTPException(400, f"Unknown region type: {kind}")
+    area: dict[str, Any] = {"page": page, "kind": kind}
+    if body.get("region_id"):
+        if not any(r.id == body["region_id"] for r in doc.pages[page].regions):
+            raise HTTPException(404, "Region not found")
+        area["region_id"] = str(body["region_id"])
+        return area
+    try:
+        x0, y0, x1, y1 = (float(v) for v in body.get("bbox") or ())
+    except (TypeError, ValueError):
+        raise HTTPException(400, "bbox must be [x0, y0, x1, y1]")
+    p = doc.pages[page]
+    x0, x1 = sorted((max(0.0, min(p.width, x0)), max(0.0, min(p.width, x1))))
+    y0, y1 = sorted((max(0.0, min(p.height, y0)), max(0.0, min(p.height, y1))))
+    if x1 - x0 < 4 or y1 - y0 < 4:
+        raise HTTPException(400, "The selected area is too small.")
+    area["bbox"] = [x0, y0, x1, y1]
+    return area
 
 
 def _output_root(state: AppState) -> Path:

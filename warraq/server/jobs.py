@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from .. import paths
+from ..core.document import MARGIN, TEXT_KINDS
 from ..core.engine import Cancelled, Engine, JobControl, copy_outputs, export_document, load_document, save_document
 from ..settings import Settings, SettingsStore, apply_preset, update_settings
 from .events import EventBus
@@ -42,8 +43,9 @@ class Job:
     preset: str | None = None
     translate: bool = False
     translation_status: str = ""
-    kind: str = "ocr"  # ocr | reocr | translate | export
+    kind: str = "ocr"  # ocr | reocr | area | translate | export
     pages_filter: list[int] | None = None
+    area: dict[str, Any] | None = None  # for "area": {page, bbox | region_id, kind}
 
     @property
     def dir(self) -> Path:
@@ -137,10 +139,11 @@ class JobManager:
             settings = update_settings(settings, job.overrides)
         return settings
 
-    def enqueue(self, job: Job, kind: str, pages: list[int] | None = None) -> None:
+    def enqueue(self, job: Job, kind: str, pages: list[int] | None = None, area: dict | None = None) -> None:
         with self.lock:
             job.kind = kind
             job.pages_filter = pages
+            job.area = area
             job.status = "queued"
             job.error = ""
             job.message = "Waiting…"
@@ -256,6 +259,24 @@ class JobManager:
                 event = {**event, "status": "running"}
             self._emit(job, event)
 
+        if kind == "area":
+            # a quick fix-up of one page: the files are rewritten on the next export
+            try:
+                page = self.engine.reread_area(job.dir, settings, emit, ctl, **(job.area or {}))
+                job.message = f"Re-read part of page {page.index + 1}"
+            except Cancelled:
+                job.message = "Cancelled"
+            except Exception as exc:
+                # the document itself is fine: report the failed fix-up, keep the job usable
+                log.exception("area re-read failed")
+                job.message = f"Could not re-read the area: {exc}"
+                self._emit(job, {"type": "log", "level": "error", "message": job.message})
+            job.status = "done"
+            job.finished = time.time()
+            self._save(job)
+            self._emit(job, {"type": "job", "status": "done", "outputs": job.outputs, "published": job.published})
+            return
+
         doc = None
         if kind in ("ocr", "reocr"):
             doc = self.engine.run(job.dir, Path(job.source), settings, emit, ctl, page_filter=job.pages_filter, name=job.name)
@@ -344,7 +365,11 @@ class JobManager:
                         r.uncertain = [w for w in r.uncertain if w in text]
                         _relayout_lines(r)
                     if kind is not None:
+                        if kind not in TEXT_KINDS:
+                            raise ValueError(f"Unknown region type: {kind}")
                         r.kind = kind
+                        if kind == MARGIN and not r.side:
+                            r.side = "right" if r.cx > page.width / 2 else "left"
                     save_document(job.dir, doc)
                     return page.to_dict()
         raise KeyError(region_id)

@@ -38,6 +38,19 @@ class FakeEngine:
         save_document(job_dir, doc)
         return doc
 
+    def reread_area(self, job_dir, settings, emit, control=None, page=0, bbox=None, region_id=None, kind="auto"):
+        from warraq.core.engine import load_document, save_document
+
+        doc = load_document(job_dir)
+        pg = doc.pages[page]
+        if kind == "title":
+            raise ValueError("nothing to read there")
+        target = next(r for r in pg.regions if r.id == region_id) if region_id else pg.regions[0]
+        target.text = f"أعيدت قراءته {kind}"
+        save_document(job_dir, doc)
+        emit({"type": "page_done", "page": pg.to_dict(), "done": 1, "total": 1})
+        return pg
+
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
@@ -117,3 +130,29 @@ def test_index_served(client):
     r = c.get("/")
     assert r.status_code == 200 and "Warraq" in r.text
     assert c.get("/static/js/main.js").status_code == 200
+
+
+def test_reread_area(client):
+    c, tmp = client
+    img = tmp / "page.png"
+    Image.new("RGB", (400, 500), "white").save(img)
+    job = wait_done(c, c.post("/api/jobs/from-paths", json={"paths": [str(img)]}).json()[0]["id"])
+    outputs = job["outputs"]
+    # bad requests are refused before anything is queued
+    assert c.post(f"/api/jobs/{job['id']}/area", json={"page": 3, "bbox": [0, 0, 50, 50]}).status_code == 400
+    assert c.post(f"/api/jobs/{job['id']}/area", json={"page": 0, "bbox": [10, 10, 12, 12]}).status_code == 400
+    assert c.post(f"/api/jobs/{job['id']}/area", json={"page": 0, "bbox": [0, 0, 50, 50], "kind": "poem"}).status_code == 400
+    assert c.post(f"/api/jobs/{job['id']}/area", json={"page": 0, "region_id": "nope"}).status_code == 404
+    r = c.post(f"/api/jobs/{job['id']}/area", json={"page": 0, "bbox": [20, 20, 380, 90], "kind": "body"})
+    assert r.status_code == 200
+    job = wait_done(c, job["id"])
+    assert job["status"] == "done" and job["kind"] == "area" and job["outputs"] == outputs
+    doc = c.get(f"/api/jobs/{job['id']}").json()["document"]
+    assert doc["pages"][0]["regions"][0]["text"] == "أعيدت قراءته body"
+    c.post(f"/api/jobs/{job['id']}/area", json={"page": 0, "region_id": "p1-r2"})
+    job = wait_done(c, job["id"])
+    assert c.get(f"/api/jobs/{job['id']}").json()["document"]["pages"][0]["regions"][1]["text"] == "أعيدت قراءته auto"
+    # a failed fix-up leaves the document usable
+    c.post(f"/api/jobs/{job['id']}/area", json={"page": 0, "bbox": [0, 0, 1000, 1000], "kind": "title"})
+    job = wait_done(c, job["id"])
+    assert job["status"] == "done" and job["message"].startswith("Could not re-read")

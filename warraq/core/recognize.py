@@ -25,6 +25,7 @@ from PIL import Image, ImageDraw
 from ..models.ocr_model import weak_words
 from . import geometry as G
 from . import imaging
+from .area import AREA_NOTE, clip_to_box
 from .document import FOOTER, FOOTNOTE, HEADER, MARGIN, PAGE_NUMBER, TABLE, TEXT_KINDS, Line, Region
 from .text import (
     clean_model_output,
@@ -85,9 +86,11 @@ class Recognizer:
         self.density: dict[tuple[str, str], tuple[float, float]] = {}
 
     # ------------------------------------------------------------------ #
-    def recognize_page(self, page_img: Image.Image, regions: list[Region], page_index: int) -> None:
+    def recognize_page(self, page_img: Image.Image, regions: list[Region], page_index: int, targets: list[Region] | None = None) -> None:
+        """Read the text regions of a page.  ``targets`` limits reading to some of them;
+        ``regions`` is still the whole page, so neighbouring blocks are masked out."""
         jobs: list[RegionJob] = []
-        for r in regions:
+        for r in regions if targets is None else targets:
             if r.kind not in TEXT_KINDS:
                 continue
             job = self._prepare_region(page_img, r, regions)
@@ -153,6 +156,9 @@ class Recognizer:
         if cx1 - cx0 < 4 or cy1 - cy0 < 4:
             return None
         crop = page_img.crop((cx0, cy0, cx1, cy1)).convert("RGB")
+        if AREA_NOTE in r.notes:
+            # a box the user drew: exactly what lies inside it, nothing of its neighbours
+            crop = clip_to_box(crop, (x0 - cx0, y0 - cy0, x1 - cx0, y1 - cy0))
         # White out other regions that intrude into this crop.
         draw = ImageDraw.Draw(crop)
         for o in regions:
@@ -503,7 +509,7 @@ class Recognizer:
         r.flagged = flagged or (r.confidence is not None and r.confidence < threshold)
         r.uncertain = _review_words(unsure, r.text)
         r.line_height = job.line_height
-        keep = [n for n in r.notes if n.startswith("lines:") or n in ("starts_with_equals", "ends_with_equals", "recovered")]
+        keep = [n for n in r.notes if n.startswith("lines:") or n in ("starts_with_equals", "ends_with_equals", "recovered", AREA_NOTE)]
         r.notes = keep + sorted(set(notes))
         r.lines = self._line_boxes(job, r.text)
 

@@ -310,7 +310,11 @@ class App {
     if (type === "job" && e.job) {
       upsertJob(e.job);
       if (e.replay) { /* history replayed on connect: update state silently */ }
-      else if (e.status === "done") {
+      else if (e.status === "done" && e.job.kind === "area") {
+        // a quick fix-up of one page: no chime, just say how it went
+        const failed = (e.job.message || "").startsWith("Could not");
+        toast(e.job.message || t("done"), failed ? "err" : "ok", failed ? 6000 : 2400);
+      } else if (e.status === "done") {
         if (state.settings.general.notify_when_done) chime();
         const job = e.job;
         toast(`${job.name} — ${t("done")}`, "ok", 3600);
