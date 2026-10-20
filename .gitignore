@@ -9,3 +9,5 @@ dist/
 *.part
 .DS_Store
 Thumbs.db
+bench/data/
+bench/results/

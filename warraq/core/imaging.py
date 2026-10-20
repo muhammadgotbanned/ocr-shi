@@ -264,11 +264,39 @@ class LineBand:
         return self.bottom - self.top
 
 
-def segment_lines(gray: np.ndarray, mask: np.ndarray | None = None) -> list[LineBand]:
+def segment_lines(gray: np.ndarray, mask: np.ndarray | None = None, _depth: int = 0) -> list[LineBand]:
     """Split a (roughly horizontal) text block into line bands using valleys of the
-    horizontal projection profile.  Diacritics and dots are kept with their line."""
+    horizontal projection profile.  Diacritics and dots are kept with their line.
+
+    The valleys are found with the block's dominant line spacing, so where smaller type
+    follows (footnotes under the body, a commentary under its verse) two of its tighter
+    lines can end up in one band; such a band, far taller than the lines around it, is
+    split again with its own spacing."""
     if mask is None:
         mask = ink_mask(gray)
+    bands = _segment_lines(gray, mask)
+    if _depth >= 2 or len(bands) < 3:
+        return bands
+    heights = sorted(b.height for b in bands)
+    typical = heights[len(heights) // 2]
+    out: list[LineBand] = []
+    for b in bands:
+        if b.height > 1.25 * typical and b.height > 24:
+            sub = segment_lines(gray[b.top : b.bottom], mask[b.top : b.bottom], _depth + 1)
+            # only a clean split replaces the band: pieces of a line's size, or set well apart
+            # (a page number under the last footnote); never a row of vowel marks off its line
+            apart = [
+                min(s.top - sub[k - 1].bottom if k else 1e9, sub[k + 1].top - s.bottom if k + 1 < len(sub) else 1e9) >= 0.4 * typical
+                for k, s in enumerate(sub)
+            ]
+            if len(sub) >= 2 and all(s.height >= 0.3 * typical or far for s, far in zip(sub, apart)):
+                out.extend(LineBand(b.top + s.top, b.top + s.bottom, s.left, s.right) for s in sub)
+                continue
+        out.append(b)
+    return out
+
+
+def _segment_lines(gray: np.ndarray, mask: np.ndarray) -> list[LineBand]:
     h, w = mask.shape
     if h < 6 or w < 6 or mask.sum() == 0:
         return []
@@ -294,23 +322,37 @@ def segment_lines(gray: np.ndarray, mask: np.ndarray | None = None) -> list[Line
         cuts[-1] = h
     else:
         cuts.append(h)
+    # A wide strip of blank rows is a line break whatever the spacing estimate says: with
+    # only a few lines (the foot of a page, a footnote and its page number) the estimate
+    # can be off by a whole line and step over a gap between two lines.
+    blanks, sure_gap = _blank_gaps(profile)
+    if blanks:
+        sure = [(a + b) // 2 for a, b in blanks]
+        cuts = sorted(set(sure) | {c for c in cuts if all(abs(c - x) >= min_gap or c in (0, h) for x in sure)} | {0, h})
     bands: list[LineBand] = []
     for top, bottom in zip(cuts[:-1], cuts[1:]):
         sub = mask[top:bottom]
-        if sub.sum() < max(8, 0.002 * w * (bottom - top)):
+        rows = np.where(sub.any(axis=1))[0]
+        # measured against the rows that hold ink: a cut at a wide gap leaves blank rows
+        # around a small line (a page number) that must not make it look like noise
+        if rows.size == 0 or sub.sum() < max(8, 0.002 * w * (rows[-1] - rows[0] + 1)):
             continue
         cols = np.where(sub.any(axis=0))[0]
-        rows = np.where(sub.any(axis=1))[0]
         bands.append(LineBand(top + int(rows[0]), top + int(rows[-1]) + 1, int(cols[0]), int(cols[-1]) + 1))
-    # Merge bands that are too thin to be lines (stray diacritic rows).
+    # Merge bands that are too thin to be lines (stray diacritic rows) into the line they
+    # sit against.  A thin band far from any line (a rule, a page number in small type)
+    # stays on its own.
+    # (a gap wide enough to be a sure line break is never bridged: lines of small type
+    # under large, vocalised body text are thin next to its spacing, but lines all the same)
+    close = min(max(4.0, pitch * 0.45), sure_gap - 1)
     merged: list[LineBand] = []
     for band in bands:
-        if merged and band.height < pitch * 0.33:
+        if merged and band.height < pitch * 0.33 and band.top - merged[-1].bottom <= close:
             prev = merged[-1]
             merged[-1] = LineBand(prev.top, max(prev.bottom, band.bottom), min(prev.left, band.left), max(prev.right, band.right))
         else:
             merged.append(band)
-    if len(merged) >= 2 and merged[0].height < pitch * 0.33:
+    if len(merged) >= 2 and merged[0].height < pitch * 0.33 and merged[1].top - merged[0].bottom <= close:
         first, second = merged[0], merged[1]
         merged[1] = LineBand(first.top, second.bottom, min(first.left, second.left), max(first.right, second.right))
         merged.pop(0)
@@ -350,6 +392,30 @@ def segment_lines(gray: np.ndarray, mask: np.ndarray | None = None) -> list[Line
             break
         _merge_into_neighbour(merged, min(frags, key=lambda k: mass[k]))
     return merged
+
+
+def _blank_gaps(profile: np.ndarray) -> tuple[list[tuple[int, int]], int]:
+    """Runs of empty rows between ink that are too wide to fall inside a line (between a
+    letter and its vowel marks), as (start, end), and the width that makes a gap that sure."""
+    inked = profile > 0
+    runs, gaps, start = [], [], None
+    for y, on in enumerate(inked):
+        if on and start is None:
+            start = y
+        elif not on and start is not None:
+            runs.append((start, y))
+            start = None
+    if start is not None:
+        runs.append((start, len(profile)))
+    if len(runs) < 2:
+        return [], 10**9
+    lengths = sorted(b - a for a, b in runs)
+    line = lengths[min(len(lengths) - 1, int(len(lengths) * 0.75))]  # a whole line's ink, not a row of dots
+    need = max(6, int(0.35 * line))
+    for (a0, a1), (b0, b1) in zip(runs, runs[1:]):
+        if b0 - a1 >= need:
+            gaps.append((a1, b0))
+    return gaps, need
 
 
 def _merge_into_neighbour(bands: list[LineBand], i: int) -> None:

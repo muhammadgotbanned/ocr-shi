@@ -23,6 +23,7 @@ import numpy as np
 
 from . import geometry as G
 from . import imaging
+from . import typography as T
 from .document import (
     BODY,
     CAPTION,
@@ -84,6 +85,20 @@ class PageContext:
     body_line_height: float = 0.0
     main_box: tuple[float, float, float, float] | None = None
     rule_y: float | None = None
+    _typo: T.Typography | None = None
+
+    @property
+    def typo(self) -> T.Typography:
+        """The page's typography (lines, zones), measured on first use."""
+        if self._typo is None:
+            self._typo = T.analyze(self.gray, self.mask)
+        return self._typo
+
+    @property
+    def typo_reliable(self) -> bool:
+        """Enough lines of a clear main column to judge the page's zones by its type."""
+        t = self.typo
+        return t.column is not None and len(t.lines) >= 6 and t.body_height > 0
 
 
 def build_context(gray: np.ndarray) -> PageContext:
@@ -119,12 +134,18 @@ def analyze(detections, ctx: PageContext, settings, page_index: int) -> list[Reg
         for r in regions:
             if r.kind == MARGIN:
                 r.kind = BODY
-    if lay.detect_footnotes:
+    if lay.detect_footnotes and lay.document_type == "manuscript":
+        # a codex has no typeset footnotes: what sits at its foot is a note in the bottom margin
+        for r in regions:
+            if r.kind == FOOTNOTE:
+                r.kind, r.side = MARGIN, "bottom"
+    elif lay.detect_footnotes:
         _classify_footnotes(regions, ctx)
     else:
         for r in regions:
             if r.kind == FOOTNOTE:
                 r.kind = BODY
+    _classify_furniture(regions, ctx)
     _order(regions, lay.reading_order)
     for i, r in enumerate(regions):
         r.id = f"p{page_index + 1}-r{i + 1}"
@@ -132,10 +153,20 @@ def analyze(detections, ctx: PageContext, settings, page_index: int) -> list[Reg
 
 
 def full_page(ctx: PageContext, settings, page_index: int) -> list[Region]:
-    """Layout for 'whole page' mode: one block, but footnotes under a rule are still split off."""
+    """Layout for 'whole page' mode: one block, but the running header, the footnotes and
+    the page number are still split off, by what the page's type shows."""
     regions = _full_page_regions(ctx, page_index)
     _measure_lines(regions, ctx)
-    if settings.layout.detect_footnotes and regions:
+    if regions and ctx.typo_reliable:
+        ctx.main_box = regions[0].bbox
+        ctx.body_line_height = ctx.typo.body_height
+        _classify_headers(regions, ctx)
+        if settings.layout.detect_footnotes:
+            _classify_footnotes(regions, ctx)
+        _classify_furniture(regions, ctx)
+        regions.sort(key=lambda r: (r.bbox[1], -r.bbox[2]))
+        _order(regions, settings.layout.reading_order)
+    elif settings.layout.detect_footnotes and regions:
         rules = _footnote_rules(ctx)
         if rules:
             y = rules[0][1]
@@ -386,16 +417,37 @@ def _body_line_height(regions: list[Region]) -> float:
 
 
 def _classify_headers(regions: list[Region], ctx: PageContext) -> None:
+    """Running headers and footers.  A heading at the top of a page (باب, a chapter title)
+    looks much like a running header: it is short and comes first.  It is set in heavier or
+    larger type, though, while a running header is cut off from the body by a rule or a
+    wide gap; the page's typography decides when it can."""
     main = ctx.main_box
+    typo = ctx.typo if ctx.typo_reliable else None
+    hb = typo.header_bottom if typo is not None else None
+    if hb is not None:
+        for r in list(regions):
+            if r.kind not in (BODY, TITLE, HEADER):
+                continue
+            if r.bbox[3] <= hb + 4:
+                r.kind = HEADER
+            elif r.bbox[1] < hb - 4 and r.cy > hb:
+                # the detector joined the header to the first lines under it
+                _cut_region(regions, r, hb, HEADER, r.kind, ctx)
     for r in regions:
         if r.kind not in (BODY, TITLE) or line_count(r) > 2:
             continue
         top_zone = r.bbox[3] < ctx.height * 0.11
         bottom_zone = r.bbox[1] > ctx.height * 0.9
         narrow = main is None or r.width < 0.75 * (main[2] - main[0])
+        heading = typo is not None and typo.is_title(r.bbox)
+        if heading:
+            r.kind = TITLE  # never a running header, wherever it sits
+            continue
         if top_zone and narrow and (main is None or r.bbox[3] <= main[1] + 4 or r.label == "recovered"):
             others_above = [o for o in regions if o is not r and o.kind in (BODY, TITLE) and o.bbox[3] < r.bbox[1]]
-            if not others_above:
+            # with the page's zones known, a detector "title" up there is a heading unless
+            # the typography found a header zone (handled above)
+            if not others_above and not (typo is not None and r.kind == TITLE):
                 r.kind = HEADER
         elif bottom_zone and narrow:
             r.kind = FOOTER
@@ -455,10 +507,30 @@ def _footnote_rules(ctx: PageContext) -> list[tuple[int, int, int, int]]:
 
 
 def _classify_footnotes(regions: list[Region], ctx: PageContext) -> None:
+    """Footnotes: everything under the start of the footnote zone, which the page's type
+    shows (a rule with smaller type under it, or smaller, tighter lines after a wider
+    gap).  A block the detector drew across that line is cut in two there.  A rule with
+    body-sized type under it (a table, a poem's divider) starts no footnotes."""
+    body_lh = ctx.body_line_height
+    if ctx.typo_reliable:
+        typo = ctx.typo
+        ctx.rule_y = typo.foot_top
+        if typo.foot_top is not None:
+            y = typo.foot_top
+            for r in list(regions):
+                if r.kind not in (BODY, FOOTNOTE, TITLE):
+                    continue
+                if r.bbox[1] >= y - 2:
+                    if r.kind != TITLE:
+                        r.kind = FOOTNOTE
+                elif r.cy < y < r.bbox[3] - 2 and r.kind == BODY:
+                    _cut_region(regions, r, y, BODY, FOOTNOTE, ctx)
+                elif r.kind == FOOTNOTE and r.bbox[3] <= y + 2 and r.line_height >= 0.9 * typo.body_height:
+                    r.kind = BODY  # body-sized type above the footnote zone
+        return
     rules = _footnote_rules(ctx)
     if rules:
         ctx.rule_y = float(rules[0][1])
-    body_lh = ctx.body_line_height
     candidates = [r for r in regions if r.kind in (BODY, FOOTNOTE)]
     if ctx.rule_y is not None:
         for r in candidates:
@@ -475,8 +547,64 @@ def _classify_footnotes(regions: list[Region], ctx: PageContext) -> None:
                     r.kind = FOOTNOTE
 
 
+def _classify_furniture(regions: list[Region], ctx: PageContext) -> None:
+    """Page numbers and the catchword (the next page's first word, under the last line at
+    the left): page furniture, never body text or a footnote."""
+    if not ctx.typo_reliable:
+        return
+    typo = ctx.typo
+    marks = [(b, PAGE_NUMBER, "number") for b in typo.folios]
+    if typo.catchword is not None:
+        marks.append((typo.catchword, FOOTER, "catchword"))
+    for box, kind, label in marks:
+        host = next((r for r in regions if r.kind in TEXT_KINDS and G.containment(box, r.bbox) > 0.6), None)
+        if host is None:
+            continue
+        if G.containment(host.bbox, G.union(box, box)) > 0.5 or G.area(host.bbox) <= 3 * G.area(box) + 1:
+            host.kind, host.label = kind, label
+        elif host.kind in (BODY, FOOTNOTE) and box[1] > host.cy:
+            # the detector joined it to the lines above: cut it off
+            _cut_region(regions, host, box[1] - 2, host.kind, kind, ctx)
+            piece = next((r for r in regions if r.kind == kind and G.containment(box, r.bbox) > 0.6), None)
+            if piece is not None:
+                # just the mark itself, not specks or a scanner edge on the same rows
+                pad = 0.3 * (box[3] - box[1])
+                piece.label = label
+                piece.bbox = G.clamp_box((box[0] - pad, box[1] - pad, box[2] + pad, box[3] + pad), ctx.width, ctx.height)
+
+
+def _cut_region(regions: list[Region], r: Region, y: float, upper_kind: str, lower_kind: str, ctx: PageContext) -> None:
+    """Cut region ``r`` at height ``y`` into an upper and a lower region, each hugging its ink.
+    A side without ink is dropped: then ``r`` only changes kind."""
+    x0, y0, x1, y1 = r.bbox
+    pieces = []
+    for kind, (a, b) in ((upper_kind, (y0, y)), (lower_kind, (y, y1))):
+        ix0, iy0, ix1, iy1 = int(max(0, x0)), int(max(0, a)), int(min(ctx.width, x1)), int(min(ctx.height, b))
+        ink = imaging.tight_ink_box(ctx.mask[iy0:iy1, ix0:ix1]) if iy1 > iy0 and ix1 > ix0 else None
+        if ink is None:
+            continue
+        box = (ix0 + ink[0] - 2, iy0 + ink[1] - 2, ix0 + ink[2] + 2, iy0 + ink[3] + 2)
+        pieces.append(Region(id=f"{r.id}{'ab'[len(pieces)]}", kind=kind, label=r.label, bbox=tuple(float(v) for v in G.clamp_box(box, ctx.width, ctx.height)), score=r.score, order=r.order, side=r.side, notes=[n for n in r.notes if n == "recovered"]))
+    if len(pieces) < 2:
+        r.kind = pieces[0].kind if pieces else r.kind
+        return
+    i = regions.index(r)
+    regions[i : i + 1] = pieces
+    _measure_lines(pieces, ctx)
+
+
+LINE_COUNTER_RE = re.compile(r"[0-9٠-٩۰-۹]{1,2}")
+
+
 def refine_after_ocr(regions: list[Region], ctx: PageContext | None, page) -> None:
-    """Use the recognised text to fix region types (footnotes, page numbers)."""
+    """Use the recognised text to fix region types (footnotes, page numbers, line counters)."""
+    for r in regions:
+        # editions number every fifth line in the margin (٥، ١٠، ١٥): page furniture, not notes
+        t = r.text.strip()
+        if r.kind == MARGIN and LINE_COUNTER_RE.fullmatch(t):
+            n = int(t.translate(str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "01234567890123456789")))
+            if n and n % 5 == 0:
+                r.kind, r.label = FOOTER, "line_number"
     body = [r for r in regions if r.kind == BODY and r.text]
     if body:
         lowest = max(body, key=lambda r: r.bbox[1])
@@ -488,7 +616,7 @@ def refine_after_ocr(regions: list[Region], ctx: PageContext | None, page) -> No
         if looks_like_note and smaller and not_only and lowest.bbox[1] > (ctx.height * 0.4 if ctx else 0):
             lowest.kind = FOOTNOTE
     for r in regions:
-        if r.kind in (HEADER, FOOTER, PAGE_NUMBER, BODY) and r.text:
+        if r.kind in (HEADER, FOOTER, PAGE_NUMBER, BODY) and r.text and r.label != "line_number":
             t = r.text.strip()
             if re.fullmatch(r"[\s\-–—_.()\[\]٠-٩0-9۰-۹]+", t) and any(c.isdigit() for c in t) and len(t) <= 12:
                 if r.kind == BODY and line_count(r) > 1:

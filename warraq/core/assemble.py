@@ -80,6 +80,7 @@ class ParsedArea:
     continuation_region: str | None = None
     notes: list[ParsedNote] = field(default_factory=list)
     last_continues: bool = False
+    continuation_seen_only: bool = False  # the "=" was found in the image, not in the text
 
 
 def continuation_markers(settings) -> list[str]:
@@ -104,6 +105,7 @@ def parse_footnote_area(
     starts_cont = any(first.startswith(m) for m in markers)
     if not starts_cont and starts_with_equals and not match_marker(first):
         starts_cont = True  # the sign is visible on the page even if the model dropped it
+        area.continuation_seen_only = True
     if starts_cont:
         cont_lines = []
         while i < len(lines):
@@ -298,6 +300,7 @@ def assemble(document: Document, settings) -> list[PageView]:
 
     views: list[PageView] = []
     areas: list[ParsedArea] = []
+    pages_in_order: list[Page] = []
     for page in document.pages:
         view = PageView(page=page, number=page.index + 1, printed_number=fix(page.printed_number))
         foot_lines: list[tuple[str, str]] = []
@@ -320,9 +323,9 @@ def assemble(document: Document, settings) -> list[PageView]:
             elif r.kind == MARGIN:
                 view.margins.append(MarginView("", r.side, text, r.id))
             elif r.kind in (HEADER, FOOTER, PAGE_NUMBER):
-                if hf == "drop":
-                    continue
-                if hf == "inline":
+                if hf == "drop" or r.label == "line_number":
+                    continue  # (an edition's line counter is never worth keeping)
+                if hf == "inline" and r.label != "catchword":  # the catchword repeats the next page's first word
                     if r.kind == HEADER:
                         view.blocks.insert(0, BlockView(r.kind, text, r.id))
                     else:
@@ -335,8 +338,11 @@ def assemble(document: Document, settings) -> list[PageView]:
             m.label = ms.label_format.replace("{n}", str(n))
         area = parse_footnote_area(foot_lines, settings, starts_eq, ends_eq)
         areas.append(area)
-        page.continuation = area.continuation
         views.append(view)
+        pages_in_order.append(page)
+    _resolve_leading_text(areas, pages_in_order)
+    for page, area in zip(pages_in_order, areas):
+        page.continuation = area.continuation
 
     # Footnote entries, then continuation merging across pages.
     counter = 0
@@ -393,6 +399,49 @@ def assemble(document: Document, settings) -> list[PageView]:
         for view in views:
             _link_markers(view, settings)
     return views
+
+
+_FINAL = (".", "۔", "؟", "?", "!", "»", ")", "]")
+
+
+def _finished(text: str) -> bool:
+    """Does a footnote end like a finished note (a full stop, a closing reference)?"""
+    t = text.rstrip()
+    return bool(t) and t.endswith(_FINAL) and not t.endswith("=")
+
+
+def _resolve_leading_text(areas: list[ParsedArea], pages: list[Page]) -> None:
+    """Decide what text standing before a page's first numbered footnote is.
+
+    A footnote that runs over continues at the top of the next page's footnotes, after
+    "=".  Without that evidence in the text it is easy to get wrong in both directions:
+    an "=" seen only in the image of a page whose previous footnote ended properly is
+    no continuation, and a note whose number was misread is no continuation either.
+    So, with the previous page's last note and this page's numbering as evidence:
+
+    * an "=" found only in the image is believed when the previous note is unfinished;
+    * unnumbered text followed by note 1 can only continue the previous page;
+    * unnumbered text followed by note n (n > 1) is note n-1, its number misread;
+    * unnumbered text alone continues the previous page when that note is unfinished.
+    """
+    for idx, area in enumerate(areas):
+        prev = areas[idx - 1] if idx > 0 and pages[idx - 1].source_index <= pages[idx].source_index else None
+        prev_text = (prev.notes[-1].text if prev.notes else prev.continuation) if prev is not None else ""
+        prev_open = prev is not None and bool(prev_text) and (prev.last_continues or not _finished(prev_text))
+        if area.continuation and area.continuation_seen_only and not prev_open:
+            # the mark seen was not a continuation sign: this is the page's own first note
+            area.notes.insert(0, ParsedNote(marker=None, number=None, lines=[area.continuation], region_ids=[r for r in [area.continuation_region] if r]))
+            area.continuation, area.continuation_region = "", None
+        if area.continuation or not area.notes or area.notes[0].marker is not None:
+            continue
+        lead = area.notes[0]
+        following = next((n.number for n in area.notes[1:] if n.number is not None), None)
+        if following is not None and following > 1 and len(area.notes) > 1 and area.notes[1].number == following:
+            lead.number = following - 1  # its marker was misread
+        elif following == 1 or (following is None and prev_open):
+            area.continuation = lead.text
+            area.continuation_region = lead.region_ids[0] if lead.region_ids else None
+            area.notes.pop(0)
 
 
 def _link_markers(view: PageView, settings) -> None:

@@ -97,3 +97,62 @@ def test_digits_made_consistent():
     doc.pages[1].regions[1].text = "= تتمة.\n(1) رواه مسلم ص 12."
     views = assemble(doc, s)
     assert views[1].footnotes[0].text == "رواه مسلم ص ١٢."
+
+
+def _two_pages(first_foot, second_foot, second_notes=None):
+    p1 = Page(index=0, source_index=0, source_path="b", width=1000, height=1400)
+    p1.regions = [region("p1-b", BODY, "متن", 100), region("p1-f", FOOTNOTE, first_foot, 1100)]
+    p2 = Page(index=1, source_index=1, source_path="b", width=1000, height=1400)
+    p2.regions = [region("p2-b", BODY, "متن", 100), region("p2-f", FOOTNOTE, second_foot, 1100, notes=second_notes)]
+    return Document(name="b", source_path="b", pages=[p1, p2])
+
+
+def test_seen_equals_after_a_finished_note_is_not_a_continuation():
+    # the image detector saw an "=" but the previous page's last note ended properly:
+    # this page's first note must not be glued onto it
+    doc = _two_pages("(١) انظر: الكامل ٢/٣٤.", "قال الذهبي في السير.\n(٢) رواه مسلم.", ["starts_with_equals"])
+    views = assemble(doc, Settings())
+    assert views[0].footnotes[0].text == "انظر: الكامل ٢/٣٤."
+    assert [f.label for f in views[1].footnotes] == ["[1]", "[2]"]
+    assert views[1].footnotes[0].text == "قال الذهبي في السير."
+
+
+def test_seen_equals_after_an_open_note_is_merged():
+    doc = _two_pages("(١) وقد سار المصنف على طريقة", "المتقدمين في التصنيف.\n(١) رواه مسلم.", ["starts_with_equals"])
+    views = assemble(doc, Settings())
+    assert views[0].footnotes[0].text == "وقد سار المصنف على طريقة المتقدمين في التصنيف."
+    assert [f.text for f in views[1].footnotes] == ["رواه مسلم."]
+
+
+def test_unnumbered_text_before_note_one_continues_previous_page():
+    # neither the model nor the image showed the "=", but nothing else can come before note 1
+    doc = _two_pages("(٣) وقد سار المصنف على طريقة المتقدمين.", "ثم ختم بذكر الموضوع.\n(١) رواه مسلم.")
+    views = assemble(doc, Settings())
+    assert views[0].footnotes[0].text.endswith("ثم ختم بذكر الموضوع.")
+    assert [f.label for f in views[1].footnotes] == ["[1]"]
+
+
+def test_unnumbered_text_before_note_two_is_note_one():
+    # the marker (١) was misread: the note keeps its place and the numbers stay right
+    doc = _two_pages("(٣) انظر الكامل.", "ا) انظر السير.\n(٢) رواه مسلم.")
+    views = assemble(doc, Settings())
+    assert [f.label for f in views[1].footnotes] == ["[1]", "[2]"]
+    assert views[1].footnotes[1].text == "رواه مسلم."
+    assert views[0].footnotes[0].text == "انظر الكامل."
+
+
+def test_line_counters_and_catchwords_stay_out_of_the_text():
+    from warraq.core import layout as L
+    from warraq.core.document import FOOTER
+
+    page = Page(index=0, source_index=0, source_path="b", width=1000, height=1400)
+    counter = region("c", MARGIN, "١٠", 400, side="left")
+    note = region("n", MARGIN, "بلغ", 500, side="left")
+    catch = Region(id="w", kind=FOOTER, label="catchword", bbox=(100, 1300, 200, 1340), text="فقال")
+    page.regions = [region("b", BODY, "متن الصفحة", 100), counter, note, catch]
+    L.refine_after_ocr(page.regions, None, page)
+    assert counter.kind == FOOTER and note.kind == MARGIN
+    s = Settings()
+    s.layout.headers_footers = "inline"
+    view = assemble(Document(name="b", source_path="b", pages=[page]), s)[0]
+    assert view.body == "متن الصفحة" and [m.text for m in view.margins] == ["بلغ"]

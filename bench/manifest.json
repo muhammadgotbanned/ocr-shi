@@ -1,0 +1,537 @@
+{
+ "source": "https://github.com/OpenITI/OCR_GS_Data",
+ "commit": "946b966ddc35e82bd2a8ec39cc552d1c4f202b7e",
+ "license": "CC BY-NC-SA 4.0 (OpenITI OCR gold standard)",
+ "lines": [
+  {
+   "book": "al-Jāḥiẓ, Kitāb al-Ḥayawān",
+   "image": "ara/book_Jahiz.Hayawan/7_final/000041.png",
+   "text": "ara/book_Jahiz.Hayawan/7_final/000041.gt.txt"
+  },
+  {
+   "book": "al-Jāḥiẓ, Kitāb al-Ḥayawān",
+   "image": "ara/book_Jahiz.Hayawan/7_final/000123.png",
+   "text": "ara/book_Jahiz.Hayawan/7_final/000123.gt.txt"
+  },
+  {
+   "book": "al-Jāḥiẓ, Kitāb al-Ḥayawān",
+   "image": "ara/book_Jahiz.Hayawan/7_final/000205.png",
+   "text": "ara/book_Jahiz.Hayawan/7_final/000205.gt.txt"
+  },
+  {
+   "book": "al-Jāḥiẓ, Kitāb al-Ḥayawān",
+   "image": "ara/book_Jahiz.Hayawan/7_final/000289.png",
+   "text": "ara/book_Jahiz.Hayawan/7_final/000289.gt.txt"
+  },
+  {
+   "book": "al-Jāḥiẓ, Kitāb al-Ḥayawān",
+   "image": "ara/book_Jahiz.Hayawan/7_final/000371.png",
+   "text": "ara/book_Jahiz.Hayawan/7_final/000371.gt.txt"
+  },
+  {
+   "book": "al-Jāḥiẓ, Kitāb al-Ḥayawān",
+   "image": "ara/book_Jahiz.Hayawan/7_final/000453.png",
+   "text": "ara/book_Jahiz.Hayawan/7_final/000453.gt.txt"
+  },
+  {
+   "book": "al-Jāḥiẓ, Kitāb al-Ḥayawān",
+   "image": "ara/book_Jahiz.Hayawan/7_final/000535.png",
+   "text": "ara/book_Jahiz.Hayawan/7_final/000535.gt.txt"
+  },
+  {
+   "book": "al-Jāḥiẓ, Kitāb al-Ḥayawān",
+   "image": "ara/book_Jahiz.Hayawan/7_final/000617.png",
+   "text": "ara/book_Jahiz.Hayawan/7_final/000617.gt.txt"
+  },
+  {
+   "book": "al-Jāḥiẓ, Kitāb al-Ḥayawān",
+   "image": "ara/book_Jahiz.Hayawan/7_final/000699.png",
+   "text": "ara/book_Jahiz.Hayawan/7_final/000699.gt.txt"
+  },
+  {
+   "book": "al-Jāḥiẓ, Kitāb al-Ḥayawān",
+   "image": "ara/book_Jahiz.Hayawan/7_final/000783.png",
+   "text": "ara/book_Jahiz.Hayawan/7_final/000783.gt.txt"
+  },
+  {
+   "book": "al-Jāḥiẓ, Kitāb al-Ḥayawān",
+   "image": "ara/book_Jahiz.Hayawan/7_final/000867.png",
+   "text": "ara/book_Jahiz.Hayawan/7_final/000867.gt.txt"
+  },
+  {
+   "book": "al-Jāḥiẓ, Kitāb al-Ḥayawān",
+   "image": "ara/book_Jahiz.Hayawan/7_final/000956.png",
+   "text": "ara/book_Jahiz.Hayawan/7_final/000956.gt.txt"
+  },
+  {
+   "book": "al-Yaʿqūbī, Tārīkh",
+   "image": "ara/book_Yacqubi.Tarikh/7_final/000043.png",
+   "text": "ara/book_Yacqubi.Tarikh/7_final/000043.gt.txt"
+  },
+  {
+   "book": "al-Yaʿqūbī, Tārīkh",
+   "image": "ara/book_Yacqubi.Tarikh/7_final/000130.png",
+   "text": "ara/book_Yacqubi.Tarikh/7_final/000130.gt.txt"
+  },
+  {
+   "book": "al-Yaʿqūbī, Tārīkh",
+   "image": "ara/book_Yacqubi.Tarikh/7_final/000217.png",
+   "text": "ara/book_Yacqubi.Tarikh/7_final/000217.gt.txt"
+  },
+  {
+   "book": "al-Yaʿqūbī, Tārīkh",
+   "image": "ara/book_Yacqubi.Tarikh/7_final/000304.png",
+   "text": "ara/book_Yacqubi.Tarikh/7_final/000304.gt.txt"
+  },
+  {
+   "book": "al-Yaʿqūbī, Tārīkh",
+   "image": "ara/book_Yacqubi.Tarikh/7_final/000391.png",
+   "text": "ara/book_Yacqubi.Tarikh/7_final/000391.gt.txt"
+  },
+  {
+   "book": "al-Yaʿqūbī, Tārīkh",
+   "image": "ara/book_Yacqubi.Tarikh/7_final/000478.png",
+   "text": "ara/book_Yacqubi.Tarikh/7_final/000478.gt.txt"
+  },
+  {
+   "book": "al-Yaʿqūbī, Tārīkh",
+   "image": "ara/book_Yacqubi.Tarikh/7_final/000565.png",
+   "text": "ara/book_Yacqubi.Tarikh/7_final/000565.gt.txt"
+  },
+  {
+   "book": "al-Yaʿqūbī, Tārīkh",
+   "image": "ara/book_Yacqubi.Tarikh/7_final/000652.png",
+   "text": "ara/book_Yacqubi.Tarikh/7_final/000652.gt.txt"
+  },
+  {
+   "book": "al-Yaʿqūbī, Tārīkh",
+   "image": "ara/book_Yacqubi.Tarikh/7_final/000739.png",
+   "text": "ara/book_Yacqubi.Tarikh/7_final/000739.gt.txt"
+  },
+  {
+   "book": "al-Yaʿqūbī, Tārīkh",
+   "image": "ara/book_Yacqubi.Tarikh/7_final/000826.png",
+   "text": "ara/book_Yacqubi.Tarikh/7_final/000826.gt.txt"
+  },
+  {
+   "book": "al-Yaʿqūbī, Tārīkh",
+   "image": "ara/book_Yacqubi.Tarikh/7_final/000913.png",
+   "text": "ara/book_Yacqubi.Tarikh/7_final/000913.gt.txt"
+  },
+  {
+   "book": "al-Yaʿqūbī, Tārīkh",
+   "image": "ara/book_Yacqubi.Tarikh/7_final/001000.png",
+   "text": "ara/book_Yacqubi.Tarikh/7_final/001000.gt.txt"
+  },
+  {
+   "book": "Ibn al-Athīr, al-Kāmil fī al-tārīkh",
+   "image": "ara/book_IbnAthir.Kamil/7_final/000034.png",
+   "text": "ara/book_IbnAthir.Kamil/7_final/000034.gt.txt"
+  },
+  {
+   "book": "Ibn al-Athīr, al-Kāmil fī al-tārīkh",
+   "image": "ara/book_IbnAthir.Kamil/7_final/000100.png",
+   "text": "ara/book_IbnAthir.Kamil/7_final/000100.gt.txt"
+  },
+  {
+   "book": "Ibn al-Athīr, al-Kāmil fī al-tārīkh",
+   "image": "ara/book_IbnAthir.Kamil/7_final/000166.png",
+   "text": "ara/book_IbnAthir.Kamil/7_final/000166.gt.txt"
+  },
+  {
+   "book": "Ibn al-Athīr, al-Kāmil fī al-tārīkh",
+   "image": "ara/book_IbnAthir.Kamil/7_final/000232.png",
+   "text": "ara/book_IbnAthir.Kamil/7_final/000232.gt.txt"
+  },
+  {
+   "book": "Ibn al-Athīr, al-Kāmil fī al-tārīkh",
+   "image": "ara/book_IbnAthir.Kamil/7_final/000298.png",
+   "text": "ara/book_IbnAthir.Kamil/7_final/000298.gt.txt"
+  },
+  {
+   "book": "Ibn al-Athīr, al-Kāmil fī al-tārīkh",
+   "image": "ara/book_IbnAthir.Kamil/7_final/000364.png",
+   "text": "ara/book_IbnAthir.Kamil/7_final/000364.gt.txt"
+  },
+  {
+   "book": "Ibn al-Athīr, al-Kāmil fī al-tārīkh",
+   "image": "ara/book_IbnAthir.Kamil/7_final/000430.png",
+   "text": "ara/book_IbnAthir.Kamil/7_final/000430.gt.txt"
+  },
+  {
+   "book": "Ibn al-Athīr, al-Kāmil fī al-tārīkh",
+   "image": "ara/book_IbnAthir.Kamil/7_final/000496.png",
+   "text": "ara/book_IbnAthir.Kamil/7_final/000496.gt.txt"
+  },
+  {
+   "book": "Ibn al-Athīr, al-Kāmil fī al-tārīkh",
+   "image": "ara/book_IbnAthir.Kamil/7_final/000562.png",
+   "text": "ara/book_IbnAthir.Kamil/7_final/000562.gt.txt"
+  },
+  {
+   "book": "Ibn al-Athīr, al-Kāmil fī al-tārīkh",
+   "image": "ara/book_IbnAthir.Kamil/7_final/000628.png",
+   "text": "ara/book_IbnAthir.Kamil/7_final/000628.gt.txt"
+  },
+  {
+   "book": "Ibn al-Athīr, al-Kāmil fī al-tārīkh",
+   "image": "ara/book_IbnAthir.Kamil/7_final/000694.png",
+   "text": "ara/book_IbnAthir.Kamil/7_final/000694.gt.txt"
+  },
+  {
+   "book": "Ibn al-Athīr, al-Kāmil fī al-tārīkh",
+   "image": "ara/book_IbnAthir.Kamil/7_final/000760.png",
+   "text": "ara/book_IbnAthir.Kamil/7_final/000760.gt.txt"
+  },
+  {
+   "book": "Ibn Qutayba, Adab al-kātib",
+   "image": "ara/book_IbnQutayba.Adab/7_final/000032.png",
+   "text": "ara/book_IbnQutayba.Adab/7_final/000032.gt.txt"
+  },
+  {
+   "book": "Ibn Qutayba, Adab al-kātib",
+   "image": "ara/book_IbnQutayba.Adab/7_final/000097.png",
+   "text": "ara/book_IbnQutayba.Adab/7_final/000097.gt.txt"
+  },
+  {
+   "book": "Ibn Qutayba, Adab al-kātib",
+   "image": "ara/book_IbnQutayba.Adab/7_final/000163.png",
+   "text": "ara/book_IbnQutayba.Adab/7_final/000163.gt.txt"
+  },
+  {
+   "book": "Ibn Qutayba, Adab al-kātib",
+   "image": "ara/book_IbnQutayba.Adab/7_final/000230.png",
+   "text": "ara/book_IbnQutayba.Adab/7_final/000230.gt.txt"
+  },
+  {
+   "book": "Ibn Qutayba, Adab al-kātib",
+   "image": "ara/book_IbnQutayba.Adab/7_final/000299.png",
+   "text": "ara/book_IbnQutayba.Adab/7_final/000299.gt.txt"
+  },
+  {
+   "book": "Ibn Qutayba, Adab al-kātib",
+   "image": "ara/book_IbnQutayba.Adab/7_final/000364.png",
+   "text": "ara/book_IbnQutayba.Adab/7_final/000364.gt.txt"
+  },
+  {
+   "book": "Ibn Qutayba, Adab al-kātib",
+   "image": "ara/book_IbnQutayba.Adab/7_final/000429.png",
+   "text": "ara/book_IbnQutayba.Adab/7_final/000429.gt.txt"
+  },
+  {
+   "book": "Ibn Qutayba, Adab al-kātib",
+   "image": "ara/book_IbnQutayba.Adab/7_final/000495.png",
+   "text": "ara/book_IbnQutayba.Adab/7_final/000495.gt.txt"
+  },
+  {
+   "book": "Ibn Qutayba, Adab al-kātib",
+   "image": "ara/book_IbnQutayba.Adab/7_final/000562.png",
+   "text": "ara/book_IbnQutayba.Adab/7_final/000562.gt.txt"
+  },
+  {
+   "book": "Ibn Qutayba, Adab al-kātib",
+   "image": "ara/book_IbnQutayba.Adab/7_final/000627.png",
+   "text": "ara/book_IbnQutayba.Adab/7_final/000627.gt.txt"
+  },
+  {
+   "book": "Ibn Qutayba, Adab al-kātib",
+   "image": "ara/book_IbnQutayba.Adab/7_final/000692.png",
+   "text": "ara/book_IbnQutayba.Adab/7_final/000692.gt.txt"
+  },
+  {
+   "book": "Ibn Qutayba, Adab al-kātib",
+   "image": "ara/book_IbnQutayba.Adab/7_final/000757.png",
+   "text": "ara/book_IbnQutayba.Adab/7_final/000757.gt.txt"
+  },
+  {
+   "book": "Ibn al-Faqīh al-Hamadhānī, Kitāb al-buldān",
+   "image": "ara/book_IbnFaqihHamadhani.Buldan/7_final/a_000063.png",
+   "text": "ara/book_IbnFaqihHamadhani.Buldan/7_final/a_000063.gt.txt"
+  },
+  {
+   "book": "Ibn al-Faqīh al-Hamadhānī, Kitāb al-buldān",
+   "image": "ara/book_IbnFaqihHamadhani.Buldan/7_final/a_000187.png",
+   "text": "ara/book_IbnFaqihHamadhani.Buldan/7_final/a_000187.gt.txt"
+  },
+  {
+   "book": "Ibn al-Faqīh al-Hamadhānī, Kitāb al-buldān",
+   "image": "ara/book_IbnFaqihHamadhani.Buldan/7_final/a_000309.png",
+   "text": "ara/book_IbnFaqihHamadhani.Buldan/7_final/a_000309.gt.txt"
+  },
+  {
+   "book": "Ibn al-Faqīh al-Hamadhānī, Kitāb al-buldān",
+   "image": "ara/book_IbnFaqihHamadhani.Buldan/7_final/a_000435.png",
+   "text": "ara/book_IbnFaqihHamadhani.Buldan/7_final/a_000435.gt.txt"
+  },
+  {
+   "book": "Ibn al-Faqīh al-Hamadhānī, Kitāb al-buldān",
+   "image": "ara/book_IbnFaqihHamadhani.Buldan/7_final/a_000562.png",
+   "text": "ara/book_IbnFaqihHamadhani.Buldan/7_final/a_000562.gt.txt"
+  },
+  {
+   "book": "Ibn al-Faqīh al-Hamadhānī, Kitāb al-buldān",
+   "image": "ara/book_IbnFaqihHamadhani.Buldan/7_final/a_000684.png",
+   "text": "ara/book_IbnFaqihHamadhani.Buldan/7_final/a_000684.gt.txt"
+  },
+  {
+   "book": "Ibn al-Faqīh al-Hamadhānī, Kitāb al-buldān",
+   "image": "ara/book_IbnFaqihHamadhani.Buldan/7_final/a_000857.png",
+   "text": "ara/book_IbnFaqihHamadhani.Buldan/7_final/a_000857.gt.txt"
+  },
+  {
+   "book": "Ibn al-Faqīh al-Hamadhānī, Kitāb al-buldān",
+   "image": "ara/book_IbnFaqihHamadhani.Buldan/7_final/b_000092.png",
+   "text": "ara/book_IbnFaqihHamadhani.Buldan/7_final/b_000092.gt.txt"
+  },
+  {
+   "book": "Ibn al-Faqīh al-Hamadhānī, Kitāb al-buldān",
+   "image": "ara/book_IbnFaqihHamadhani.Buldan/7_final/b_000214.png",
+   "text": "ara/book_IbnFaqihHamadhani.Buldan/7_final/b_000214.gt.txt"
+  },
+  {
+   "book": "Ibn al-Faqīh al-Hamadhānī, Kitāb al-buldān",
+   "image": "ara/book_IbnFaqihHamadhani.Buldan/7_final/b_000337.png",
+   "text": "ara/book_IbnFaqihHamadhani.Buldan/7_final/b_000337.gt.txt"
+  },
+  {
+   "book": "Ibn al-Faqīh al-Hamadhānī, Kitāb al-buldān",
+   "image": "ara/book_IbnFaqihHamadhani.Buldan/7_final/b_000459.png",
+   "text": "ara/book_IbnFaqihHamadhani.Buldan/7_final/b_000459.gt.txt"
+  },
+  {
+   "book": "Ibn al-Faqīh al-Hamadhānī, Kitāb al-buldān",
+   "image": "ara/book_IbnFaqihHamadhani.Buldan/7_final/b_000581.png",
+   "text": "ara/book_IbnFaqihHamadhani.Buldan/7_final/b_000581.gt.txt"
+  },
+  {
+   "book": "al-Dhahabī, Tārīkh al-Islām (poor scan)",
+   "image": "ara/lq_Dhahabi.Tarikh/7_final/000046.png",
+   "text": "ara/lq_Dhahabi.Tarikh/7_final/000046.gt.txt"
+  },
+  {
+   "book": "al-Dhahabī, Tārīkh al-Islām (poor scan)",
+   "image": "ara/lq_Dhahabi.Tarikh/7_final/000138.png",
+   "text": "ara/lq_Dhahabi.Tarikh/7_final/000138.gt.txt"
+  },
+  {
+   "book": "al-Dhahabī, Tārīkh al-Islām (poor scan)",
+   "image": "ara/lq_Dhahabi.Tarikh/7_final/000290.png",
+   "text": "ara/lq_Dhahabi.Tarikh/7_final/000290.gt.txt"
+  },
+  {
+   "book": "al-Dhahabī, Tārīkh al-Islām (poor scan)",
+   "image": "ara/lq_Dhahabi.Tarikh/7_final/000382.png",
+   "text": "ara/lq_Dhahabi.Tarikh/7_final/000382.gt.txt"
+  },
+  {
+   "book": "al-Dhahabī, Tārīkh al-Islām (poor scan)",
+   "image": "ara/lq_Dhahabi.Tarikh/7_final/000496.png",
+   "text": "ara/lq_Dhahabi.Tarikh/7_final/000496.gt.txt"
+  },
+  {
+   "book": "al-Dhahabī, Tārīkh al-Islām (poor scan)",
+   "image": "ara/lq_Dhahabi.Tarikh/7_final/000588.png",
+   "text": "ara/lq_Dhahabi.Tarikh/7_final/000588.gt.txt"
+  },
+  {
+   "book": "al-Dhahabī, Tārīkh al-Islām (poor scan)",
+   "image": "ara/lq_Dhahabi.Tarikh/7_final/000680.png",
+   "text": "ara/lq_Dhahabi.Tarikh/7_final/000680.gt.txt"
+  },
+  {
+   "book": "al-Dhahabī, Tārīkh al-Islām (poor scan)",
+   "image": "ara/lq_Dhahabi.Tarikh/7_final/000772.png",
+   "text": "ara/lq_Dhahabi.Tarikh/7_final/000772.gt.txt"
+  },
+  {
+   "book": "al-Dhahabī, Tārīkh al-Islām (poor scan)",
+   "image": "ara/lq_Dhahabi.Tarikh/7_final/000864.png",
+   "text": "ara/lq_Dhahabi.Tarikh/7_final/000864.gt.txt"
+  },
+  {
+   "book": "al-Dhahabī, Tārīkh al-Islām (poor scan)",
+   "image": "ara/lq_Dhahabi.Tarikh/7_final/000956.png",
+   "text": "ara/lq_Dhahabi.Tarikh/7_final/000956.gt.txt"
+  },
+  {
+   "book": "al-Dhahabī, Tārīkh al-Islām (poor scan)",
+   "image": "ara/lq_Dhahabi.Tarikh/7_final/001048.png",
+   "text": "ara/lq_Dhahabi.Tarikh/7_final/001048.gt.txt"
+  },
+  {
+   "book": "al-Dhahabī, Tārīkh al-Islām (poor scan)",
+   "image": "ara/lq_Dhahabi.Tarikh/7_final/001140.png",
+   "text": "ara/lq_Dhahabi.Tarikh/7_final/001140.gt.txt"
+  },
+  {
+   "book": "Ibn al-Jawzī, al-Muntaẓam (poor scan)",
+   "image": "ara/lq_IbnJawzi.Muntazam/7_final/000039.png",
+   "text": "ara/lq_IbnJawzi.Muntazam/7_final/000039.gt.txt"
+  },
+  {
+   "book": "Ibn al-Jawzī, al-Muntaẓam (poor scan)",
+   "image": "ara/lq_IbnJawzi.Muntazam/7_final/000119.png",
+   "text": "ara/lq_IbnJawzi.Muntazam/7_final/000119.gt.txt"
+  },
+  {
+   "book": "Ibn al-Jawzī, al-Muntaẓam (poor scan)",
+   "image": "ara/lq_IbnJawzi.Muntazam/7_final/000200.png",
+   "text": "ara/lq_IbnJawzi.Muntazam/7_final/000200.gt.txt"
+  },
+  {
+   "book": "Ibn al-Jawzī, al-Muntaẓam (poor scan)",
+   "image": "ara/lq_IbnJawzi.Muntazam/7_final/000278.png",
+   "text": "ara/lq_IbnJawzi.Muntazam/7_final/000278.gt.txt"
+  },
+  {
+   "book": "Ibn al-Jawzī, al-Muntaẓam (poor scan)",
+   "image": "ara/lq_IbnJawzi.Muntazam/7_final/000358.png",
+   "text": "ara/lq_IbnJawzi.Muntazam/7_final/000358.gt.txt"
+  },
+  {
+   "book": "Ibn al-Jawzī, al-Muntaẓam (poor scan)",
+   "image": "ara/lq_IbnJawzi.Muntazam/7_final/000439.png",
+   "text": "ara/lq_IbnJawzi.Muntazam/7_final/000439.gt.txt"
+  },
+  {
+   "book": "Ibn al-Jawzī, al-Muntaẓam (poor scan)",
+   "image": "ara/lq_IbnJawzi.Muntazam/7_final/000521.png",
+   "text": "ara/lq_IbnJawzi.Muntazam/7_final/000521.gt.txt"
+  },
+  {
+   "book": "Ibn al-Jawzī, al-Muntaẓam (poor scan)",
+   "image": "ara/lq_IbnJawzi.Muntazam/7_final/000600.png",
+   "text": "ara/lq_IbnJawzi.Muntazam/7_final/000600.gt.txt"
+  },
+  {
+   "book": "Ibn al-Jawzī, al-Muntaẓam (poor scan)",
+   "image": "ara/lq_IbnJawzi.Muntazam/7_final/000678.png",
+   "text": "ara/lq_IbnJawzi.Muntazam/7_final/000678.gt.txt"
+  },
+  {
+   "book": "Ibn al-Jawzī, al-Muntaẓam (poor scan)",
+   "image": "ara/lq_IbnJawzi.Muntazam/7_final/000762.png",
+   "text": "ara/lq_IbnJawzi.Muntazam/7_final/000762.gt.txt"
+  },
+  {
+   "book": "Ibn al-Jawzī, al-Muntaẓam (poor scan)",
+   "image": "ara/lq_IbnJawzi.Muntazam/7_final/000849.png",
+   "text": "ara/lq_IbnJawzi.Muntazam/7_final/000849.gt.txt"
+  },
+  {
+   "book": "Ibn al-Jawzī, al-Muntaẓam (poor scan)",
+   "image": "ara/lq_IbnJawzi.Muntazam/7_final/000929.png",
+   "text": "ara/lq_IbnJawzi.Muntazam/7_final/000929.gt.txt"
+  },
+  {
+   "book": "Ibn ʿAbd al-Ẓāhir, al-Rawḍ al-zāhir (with footnote lines)",
+   "image": "ara/ibncabdzahir/0b0a51ef-cce8-44f9-b076-2ca8b064e1df.png",
+   "text": "ara/ibncabdzahir/0b0a51ef-cce8-44f9-b076-2ca8b064e1df.gt.txt"
+  },
+  {
+   "book": "Ibn ʿAbd al-Ẓāhir, al-Rawḍ al-zāhir (with footnote lines)",
+   "image": "ara/ibncabdzahir/212f563e-2b86-433a-868c-0a322914bc22.png",
+   "text": "ara/ibncabdzahir/212f563e-2b86-433a-868c-0a322914bc22.gt.txt"
+  },
+  {
+   "book": "Ibn ʿAbd al-Ẓāhir, al-Rawḍ al-zāhir (with footnote lines)",
+   "image": "ara/ibncabdzahir/3602fbd6-bf8b-4f7a-8bc9-17c5a2ed369b.png",
+   "text": "ara/ibncabdzahir/3602fbd6-bf8b-4f7a-8bc9-17c5a2ed369b.gt.txt"
+  },
+  {
+   "book": "Ibn ʿAbd al-Ẓāhir, al-Rawḍ al-zāhir (with footnote lines)",
+   "image": "ara/ibncabdzahir/4c55adb5-a9cf-4187-a541-38eaccedb55e.png",
+   "text": "ara/ibncabdzahir/4c55adb5-a9cf-4187-a541-38eaccedb55e.gt.txt"
+  },
+  {
+   "book": "Ibn ʿAbd al-Ẓāhir, al-Rawḍ al-zāhir (with footnote lines)",
+   "image": "ara/ibncabdzahir/613e12ab-5501-43cc-998e-6937a78e497c.png",
+   "text": "ara/ibncabdzahir/613e12ab-5501-43cc-998e-6937a78e497c.gt.txt"
+  },
+  {
+   "book": "Ibn ʿAbd al-Ẓāhir, al-Rawḍ al-zāhir (with footnote lines)",
+   "image": "ara/ibncabdzahir/75cd0b09-41ce-4e70-84e1-2abec56eb415.png",
+   "text": "ara/ibncabdzahir/75cd0b09-41ce-4e70-84e1-2abec56eb415.gt.txt"
+  },
+  {
+   "book": "Ibn ʿAbd al-Ẓāhir, al-Rawḍ al-zāhir (with footnote lines)",
+   "image": "ara/ibncabdzahir/8b9cd9e9-6327-4957-af14-a157d10d4e1a.png",
+   "text": "ara/ibncabdzahir/8b9cd9e9-6327-4957-af14-a157d10d4e1a.gt.txt"
+  },
+  {
+   "book": "Ibn ʿAbd al-Ẓāhir, al-Rawḍ al-zāhir (with footnote lines)",
+   "image": "ara/ibncabdzahir/a13d3c39-98ce-49c9-b4ad-a6021ae07862.png",
+   "text": "ara/ibncabdzahir/a13d3c39-98ce-49c9-b4ad-a6021ae07862.gt.txt"
+  },
+  {
+   "book": "Ibn ʿAbd al-Ẓāhir, al-Rawḍ al-zāhir (with footnote lines)",
+   "image": "ara/ibncabdzahir/b6b1a52d-b3e1-4254-ad62-457c5806108f.png",
+   "text": "ara/ibncabdzahir/b6b1a52d-b3e1-4254-ad62-457c5806108f.gt.txt"
+  },
+  {
+   "book": "Ibn ʿAbd al-Ẓāhir, al-Rawḍ al-zāhir (with footnote lines)",
+   "image": "ara/ibncabdzahir/cb347928-08e3-4346-ae88-6886b5a514e1.png",
+   "text": "ara/ibncabdzahir/cb347928-08e3-4346-ae88-6886b5a514e1.gt.txt"
+  },
+  {
+   "book": "Ibn ʿAbd al-Ẓāhir, al-Rawḍ al-zāhir (with footnote lines)",
+   "image": "ara/ibncabdzahir/df54f6ef-ea18-4e76-bc3b-06152556f59f.png",
+   "text": "ara/ibncabdzahir/df54f6ef-ea18-4e76-bc3b-06152556f59f.gt.txt"
+  },
+  {
+   "book": "Ibn ʿAbd al-Ẓāhir, al-Rawḍ al-zāhir (with footnote lines)",
+   "image": "ara/ibncabdzahir/f46ff960-f0e3-4670-9e6f-e4f69f6ca771.png",
+   "text": "ara/ibncabdzahir/f46ff960-f0e3-4670-9e6f-e4f69f6ca771.gt.txt"
+  }
+ ],
+ "pages": [
+  {
+   "book": "Ibn Kathīr, al-Bidāya wa-l-nihāya",
+   "image": "ara/test_lq_IbnKathir.Bidaya/2_preprocessed_images/0774IbnKathir.Bidaya-168.png"
+  },
+  {
+   "book": "Ibn Kathīr, al-Bidāya wa-l-nihāya",
+   "image": "ara/test_lq_IbnKathir.Bidaya/2_preprocessed_images/0774IbnKathir.Bidaya-169.png"
+  },
+  {
+   "book": "Ibn Taghrībirdī, al-Nujūm al-zāhira",
+   "image": "ara/test_book_Taghribirdi.NujumZahira/2_preprocessed_images/Taghribirdi.NujumZahira_000004.tif"
+  },
+  {
+   "book": "Ibn Taghrībirdī, al-Nujūm al-zāhira",
+   "image": "ara/test_book_Taghribirdi.NujumZahira/2_preprocessed_images/Taghribirdi.NujumZahira_000006.tif"
+  },
+  {
+   "book": "al-Jāḥiẓ, al-Bayān wa-l-tabyīn",
+   "image": "ara/test_book_Jahiz.BayanWaTabyin/2_preprocessed_images/Jahiz.BayanWaTabyin_000004.tif"
+  },
+  {
+   "book": "al-Jāḥiẓ, al-Bayān wa-l-tabyīn",
+   "image": "ara/test_book_Jahiz.BayanWaTabyin/2_preprocessed_images/Jahiz.BayanWaTabyin_000006.tif"
+  },
+  {
+   "book": "al-Bayhaqī, al-Asmāʾ wa-l-ṣifāt",
+   "image": "ara/test_book_Bayhaqi.Asma/2_preprocessed_images/Bayhaqi.Asma_000003.tif"
+  },
+  {
+   "book": "al-Bayhaqī, al-Asmāʾ wa-l-ṣifāt",
+   "image": "ara/test_book_Bayhaqi.Asma/2_preprocessed_images/Bayhaqi.Asma_000004.tif"
+  },
+  {
+   "book": "Ibn Qutayba (attr.), al-Imāma wa-l-siyāsa",
+   "image": "ara/test_book_IbnQutayba.ImamaWaSiyasa/2_preprocessed_images_COL/IbnQutayba.ImamaWaSiyasa_000005.tif"
+  },
+  {
+   "book": "Ibn Qutayba (attr.), al-Imāma wa-l-siyāsa",
+   "image": "ara/test_book_IbnQutayba.ImamaWaSiyasa/2_preprocessed_images_COL/IbnQutayba.ImamaWaSiyasa_000006.tif"
+  },
+  {
+   "book": "al-Shaykh al-Mufīd, al-Irshād",
+   "image": "ara/test_ShaykhMufid.Irshad/2_preprocessed_images_Grey300/Irshad_NH_000003.tif"
+  },
+  {
+   "book": "al-Shaykh al-Mufīd, al-Irshād",
+   "image": "ara/test_ShaykhMufid.Irshad/2_preprocessed_images_Grey300/Irshad_NH_000004.tif"
+  }
+ ]
+}
