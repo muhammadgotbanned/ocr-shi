@@ -69,7 +69,15 @@ Every label, heading and separator can be changed in *Settings*, for example `[{
    - grows each box so it never cuts a line,
    - recovers ink the detector missed,
    - marks narrow blocks beside the main column as **marginal notes**,
-   - marks blocks below the footnote rule, or set in smaller type at the foot of the page, as **footnotes**,
+   - measures the page's type (the size and spacing of its lines, and its rules) to find its zones: the
+     **footnotes** (under a short rule with smaller type, or, with no rule, where the lines turn smaller and
+     tighter after a wider gap), the **running header** (cut off by a rule or a wide gap), **headings** such as
+     باب or فصل (short centred lines in heavier type, never mistaken for a running header), **page numbers**
+     and the **catchword** (the next page's first word, kept out of the text),
+   - cuts a block the detector drew across two zones (the header and the first lines, the last lines and the
+     footnotes, a footnote and the page number) where the zones meet,
+   - drops an edition's line counters (٥، ١٠، ١٥ in the margin), and on manuscripts treats notes at the foot of
+     the page as bottom-margin notes, since codices have no footnotes,
    - orders the body text right-to-left, column by column.
 3. **Read each region.** Rotated marginal notes are turned level, and both 180° orientations are tried. Text is
    enlarged to a consistent line height and padded with white. Text is read line by line (on a GPU many
@@ -85,7 +93,10 @@ Every label, heading and separator can be changed in *Settings*, for example `[{
    unsure of is read again, a little larger, and the better reading wins. Words that stay uncertain are
    underlined for review, and doubtful regions are flagged.
 5. **Assemble.** Footnotes are split into notes and labelled, `=` continuations are merged, marginal notes are
-   labelled, and digits are made consistent through the book.
+   labelled, and digits are made consistent through the book. A continuation is only merged when the evidence
+   holds up: an `=` seen in the image after a note that ended with a full stop is not one, text before note (١)
+   can only continue the previous page, and text before note (٢) is note (١) with its number misread, so the
+   numbering never shifts.
 
 ## Requirements
 
@@ -100,7 +111,9 @@ GPU or unified memory. On smaller GPUs Warraq unloads the OCR model before trans
 
 **Speed.** A GPU makes the biggest difference. As a rough guide, a full book page (20–25 lines) takes a few
 seconds on a recent NVIDIA GPU and somewhat longer on Apple Silicon. Without a GPU, expect two to three minutes
-per page on a 4-core CPU. Pages are saved as they finish, and long jobs can be paused and resumed.
+per page on a 4-core CPU. While the model reads one page, the next is already being loaded, cleaned up, laid
+out and cut into lines, and lines are read in batches of up to 16 on GPUs with the memory for it. Pages are
+saved as they finish, and long jobs can be paused and resumed.
 
 ## Install
 
@@ -144,6 +157,12 @@ download in advance, run `.venv\Scripts\python -m warraq download` (Windows) or
   region currently being read shimmers.
 - **Review and edit.** Click any region on the page to jump to its text. Edit text in place (it saves automatically),
   then press **Export** to rewrite the files. *Re-read page* runs OCR again, for example after changing a setting.
+- **Re-read an area.** Press **A** (or the scan button under the page, or *Re-read an area*) and drag a box around
+  any part of the page, then choose what it is: *Automatic*, text, title, footnote, marginal note or header.
+  Only that part is read again. A box over a few lines of a block replaces just those lines; choosing another
+  type moves them into a block of their own (for example body lines that are really a footnote). A box around
+  whole blocks replaces them, and a box over text nothing was found in adds it. Every block in the text panel
+  also has buttons to re-read it or change its type.
 - The **TXT preview** tab shows exactly what the text file will contain. The **Translation** tab shows the
   translated page.
 - Files are written to `Documents/Warraq/<document name>/` (configurable). *Export → Show in folder* opens it.
@@ -251,9 +270,13 @@ python -m pytest              # unit tests (no models needed)
 python -m warraq --browser    # run the GUI in your browser
 ```
 
-Layout: `warraq/core` (loading, preprocessing, layout, recognition, assembly), `warraq/models` (GPU/device
-handling, model wrappers), `warraq/export` (TXT, PDF text layer, DOCX, MD, HTML, JSON), `warraq/translate`,
-`warraq/server` (FastAPI + live events), `warraq/web` (the GUI, plain ES modules, no build step).
+Layout: `warraq/core` (loading, preprocessing, layout, page typography, recognition, area re-reads, assembly),
+`warraq/models` (GPU/device handling, model wrappers), `warraq/export` (TXT, PDF text layer, DOCX, MD, HTML,
+JSON), `warraq/translate`, `warraq/server` (FastAPI + live events), `warraq/web` (the GUI, plain ES modules, no
+build step).
+
+`bench/` holds a fixed test set (gold-standard lines and pages from classical works, and optionally real
+manuscripts) and a runner that scores the reader on it. See [bench/README.md](bench/README.md).
 
 ## Credits & licences
 
