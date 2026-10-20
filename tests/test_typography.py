@@ -149,3 +149,26 @@ def test_manuscript_has_no_footnotes():
     regions = L.analyze(dets, L.build_context(gray), st, 0)
     low = max(regions, key=lambda r: r.bbox[1])
     assert low.kind == "margin" and low.side == "bottom"
+
+
+def test_block_mostly_footnotes_starting_above_the_zone_is_cut():
+    gray, last_body = _page(folio=False)
+    # the detector's lower block takes in the last two body lines and all the footnotes
+    split = 140 + 72 * 12 - 13  # in the gap above the 13th body line
+    regions = _analyze(gray, [Detection("text", 0.9, (X0 - 5, 120, X1 + 5, split - 1), 1, None), Detection("text", 0.9, (X0 - 5, split + 1, X1 + 5, 1400), 2, None)])
+    notes = [r for r in regions if r.kind == FOOTNOTE]
+    assert len(notes) == 1 and notes[0].bbox[1] > last_body - 20
+    assert sum(L.line_count(r) for r in regions if r.kind == BODY) == 14
+
+
+def test_page_number_on_top_of_the_first_block_is_cut_off():
+    img = Image.new("L", (W, H), 255)
+    d = ImageDraw.Draw(img)
+    _line(d, 60, 22, x0=560, x1=640, stroke=4)  # "(٧)" centred at the top
+    y = 160
+    for _ in range(14):
+        _line(d, y, 30, vowels=True)
+        y += 72
+    regions = _analyze(np.asarray(img), [Detection("text", 0.9, (X0 - 5, 50, X1 + 5, y), 1, None)])
+    kinds = sorted(r.kind for r in regions)
+    assert kinds == [BODY, PAGE_NUMBER], [(r.kind, r.bbox) for r in regions]

@@ -516,17 +516,18 @@ def _classify_footnotes(regions: list[Region], ctx: PageContext) -> None:
         typo = ctx.typo
         ctx.rule_y = typo.foot_top
         if typo.foot_top is not None:
-            y = typo.foot_top
+            y, lh = typo.foot_top, typo.body_height
             for r in list(regions):
                 if r.kind not in (BODY, FOOTNOTE, TITLE):
                     continue
-                if r.bbox[1] >= y - 2:
+                above, below = y - r.bbox[1], r.bbox[3] - y
+                if above <= 0.6 * lh:  # starts at the zone (a rule or a stray mark above it at most)
                     if r.kind != TITLE:
                         r.kind = FOOTNOTE
-                elif r.cy < y < r.bbox[3] - 2 and r.kind == BODY:
-                    _cut_region(regions, r, y, BODY, FOOTNOTE, ctx)
-                elif r.kind == FOOTNOTE and r.bbox[3] <= y + 2 and r.line_height >= 0.9 * typo.body_height:
-                    r.kind = BODY  # body-sized type above the footnote zone
+                elif below > 0.4 * lh and r.kind in (BODY, FOOTNOTE):
+                    _cut_region(regions, r, y, BODY, FOOTNOTE, ctx)  # drawn across the zone's top
+                elif r.kind == FOOTNOTE and below <= 2 and r.line_height >= 1.1 * lh:
+                    r.kind = BODY  # spaced like the body, above the footnote zone
         return
     rules = _footnote_rules(ctx)
     if rules:
@@ -560,11 +561,14 @@ def _classify_furniture(regions: list[Region], ctx: PageContext) -> None:
         host = next((r for r in regions if r.kind in TEXT_KINDS and G.containment(box, r.bbox) > 0.6), None)
         if host is None:
             continue
-        if G.containment(host.bbox, G.union(box, box)) > 0.5 or G.area(host.bbox) <= 3 * G.area(box) + 1:
+        if G.containment(host.bbox, box) > 0.5 or G.area(host.bbox) <= 3 * G.area(box) + 1:
             host.kind, host.label = kind, label
-        elif host.kind in (BODY, FOOTNOTE) and box[1] > host.cy:
-            # the detector joined it to the lines above: cut it off
-            _cut_region(regions, host, box[1] - 2, host.kind, kind, ctx)
+        elif host.kind in (BODY, FOOTNOTE, HEADER):
+            # the detector joined it to the lines above (or, at the top, below): cut it off
+            if box[1] > host.cy:
+                _cut_region(regions, host, box[1] - 2, host.kind, kind, ctx)
+            else:
+                _cut_region(regions, host, box[3] + 2, kind, host.kind, ctx)
             piece = next((r for r in regions if r.kind == kind and G.containment(box, r.bbox) > 0.6), None)
             if piece is not None:
                 # just the mark itself, not specks or a scanner edge on the same rows

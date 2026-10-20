@@ -221,6 +221,8 @@ def create_app(state: AppState | None = None) -> FastAPI:
             m.enqueue(job, "reocr", pages=[int(p) for p in pages] if pages else None)
         elif action == "area":
             # read part of a page again: a box the user drew, or one region
+            if job.status in ("running", "queued", "paused") and job.kind != "area":
+                raise HTTPException(409, "This document is still being read; re-read part of it when it is done.")
             area = _area_request(job, body)
             m.enqueue(job, "area", area=area)
         elif action == "translate":

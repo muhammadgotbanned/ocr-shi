@@ -231,7 +231,9 @@ def _find_header(typo: Typography, page_h: int) -> None:
             break
         gap = below.top - above.bottom
         heading = any(typo.is_title(l.box) for l in lines[:k])
-        if _rule_between(typo, above, below) is not None or (gap >= 2.2 * typo.body_gap and gap >= 0.35 * typo.body_height and not heading and above.height <= 1.1 * typo.body_height):
+        # without a rule, only a short line set apart: a full first line after a gap is text
+        apart = gap >= 2.2 * typo.body_gap and gap >= 0.35 * typo.body_height and above.width <= 0.85 * (typo.column[1] - typo.column[0])
+        if _rule_between(typo, above, below) is not None or (apart and not heading and above.height <= 1.1 * typo.body_height):
             typo.header_bottom = (above.bottom + below.top) / 2
             return
 
