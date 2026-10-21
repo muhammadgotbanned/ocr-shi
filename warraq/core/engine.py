@@ -262,11 +262,14 @@ class Engine:
         return item
 
     def _detect(self, image: Image.Image, settings):
-        # Both models on the CPU would only fight over its cores: then the layout model waits
-        # for the batch being read.  On a GPU (or with the layout model on the CPU and OCR on
-        # the GPU) they run side by side.
-        both_on_cpu = self.ocr.device == "cpu" and self.layout.device == "cpu"
-        with self.ocr.lock if both_on_cpu else contextlib.nullcontext():
+        # The layout model runs beside the batch being read only where that is safe and
+        # useful: both on NVIDIA GPUs, or the layout model on the CPU while OCR uses a GPU.
+        # Apple's Metal backend aborts when two threads submit work at once ("A command
+        # encoder is already encoding to this command buffer"), and two models on the CPU
+        # would only fight over its cores, so there the layout model waits its turn.
+        ocr_dev, lay_dev = str(self.ocr.device), str(self.layout.device)
+        side_by_side = (ocr_dev.startswith("cuda") and lay_dev.startswith("cuda")) or (lay_dev == "cpu" and ocr_dev != "cpu")
+        with contextlib.nullcontext() if side_by_side else self.ocr.lock:
             return self.layout.detect(image, settings.layout.threshold)
 
     def _read_part(self, doc, sp, prepared: _PreparedPart, pages_dir: Path, settings, recognizer: Recognizer, emit, control) -> Page:
