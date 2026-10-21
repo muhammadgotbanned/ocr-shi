@@ -152,3 +152,14 @@ def test_block_with_lines_mixed_up_fails_verification():
     ]
     assert R._shared_run(mixed, 6)
     assert not R._shared_run(["الله أكبر الله أكبر أشهد أن لا إله إلا الله", "أشهد أن محمدا رسول الله حي على الصلاة"], 6)
+
+
+def test_auto_batch_follows_memory(monkeypatch):
+    from warraq.models import hardware
+
+    ocr = type("M", (), {"device": "mps"})()
+    for gb, expected in ((8, 2), (16, 4), (24, 6)):
+        monkeypatch.setattr(hardware, "device_memory_gb", lambda device, gb=gb: gb)
+        assert R._auto_batch(ocr) == expected
+    ocr.device = "cpu"
+    assert R._auto_batch(ocr) == 1

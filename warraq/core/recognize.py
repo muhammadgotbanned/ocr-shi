@@ -774,9 +774,13 @@ def _auto_batch(ocr) -> int:
     device = getattr(ocr, "device", "cpu") or "cpu"
     if device == "cpu":
         return 1
-    if device == "mps":
-        return 2
     from ..models import hardware
+
+    if device == "mps":
+        # Apple GPUs share the Mac's memory with macOS and every open app: an 8 GB Mac
+        # reads 2 lines at a time, 16 GB 4, 24 GB and more 6
+        mem = hardware.device_memory_gb(device) or 8
+        return 6 if mem >= 24 else 4 if mem >= 12 else 2
 
     # line images are small: a batch of 16 needs well under 2 GB besides the model, and
     # reading them together costs barely more than reading one (decoding is memory-bound).

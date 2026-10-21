@@ -18,6 +18,7 @@ from typing import Callable
 from PIL import Image
 
 from .. import paths
+from ..models import hardware
 from ..models.layout_model import LayoutModel
 from ..models.ocr_model import OCRModel
 from . import layout as L
@@ -79,6 +80,7 @@ class Engine:
         self.ocr = OCRModel()
         self.layout = LayoutModel()
         self.lock = threading.RLock()
+        self._unified_gb: float | None = None
 
     # ------------------------------------------------------------------ #
     def ensure_models(self, settings, emit: EventFn) -> None:
@@ -144,6 +146,8 @@ class Engine:
                         _insert_page(doc, page)
                         save_document(job_dir, doc)
                         emit({"type": "page_done", "page": page.to_dict(), "done": processed + 1, "total": len(wanted)})
+                        if self._tight_unified_memory():
+                            hardware.empty_cache()  # give Metal's cached buffers back to macOS
                     processed += 1
                     emit({"type": "progress", "done": processed, "total": len(wanted)})
             for i, p in enumerate(doc.pages):
@@ -260,6 +264,15 @@ class Engine:
             item.parts.append(prepared)
         item.seconds = time.time() - t0
         return item
+
+    def _tight_unified_memory(self) -> bool:
+        """An Apple GPU on a Mac with 16 GB or less, where the model, macOS and every open
+        app share one pool of memory."""
+        if str(self.ocr.device) != "mps":
+            return False
+        if self._unified_gb is None:
+            self._unified_gb = hardware.device_memory_gb("mps") or 0.0
+        return self._unified_gb <= 16
 
     def _detect(self, image: Image.Image, settings):
         # The layout model runs beside the batch being read only where that is safe and

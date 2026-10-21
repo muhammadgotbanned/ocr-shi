@@ -60,7 +60,7 @@ class FakeLayout:
 
 def _engine(delay=0.05):
     eng = Engine.__new__(Engine)
-    eng.ocr, eng.layout, eng.lock = FakeOCR(delay), FakeLayout(), threading.RLock()
+    eng.ocr, eng.layout, eng.lock, eng._unified_gb = FakeOCR(delay), FakeLayout(), threading.RLock(), None
     return eng
 
 
